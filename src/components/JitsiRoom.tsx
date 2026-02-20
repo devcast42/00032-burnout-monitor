@@ -126,8 +126,10 @@ export default function JitsiRoom({
       startWithAudioMuted: false,
       startWithVideoMuted: false,
       prejoinPageEnabled: false,
+      disableDeepLinking: true,
      }}
      interfaceConfigOverwrite={{
+      MOBILE_APP_PROMO: false,
       TOOLBAR_BUTTONS: [
        "microphone",
        "camera",
