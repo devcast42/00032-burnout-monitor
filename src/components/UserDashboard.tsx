@@ -3,6 +3,7 @@
 import { useState } from "react";
 import SurveyForm from "@/components/SurveyForm";
 import SurveyHistory from "@/components/SurveyHistory";
+import LogoutButton from "@/components/LogoutButton";
 import { User } from "@/lib/auth";
 
 export default function UserDashboard({ user, chain }: { user: User, chain: User[] }) {
@@ -14,8 +15,11 @@ export default function UserDashboard({ user, chain }: { user: User, chain: User
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-8 shadow-sm">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-semibold text-white">Panel de Usuario</h1>
-            <div className="text-sm text-zinc-400">
-              {user.name} ({user.email})
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-zinc-400">
+                {user.name} ({user.email})
+              </div>
+              <LogoutButton />
             </div>
           </div>
           
