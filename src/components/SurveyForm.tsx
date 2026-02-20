@@ -3,21 +3,21 @@
 import { useState } from "react";
 
 const questions = [
-  "I feel run down and drained of physical or emotional energy.",
-  "I have negative thoughts about my job.",
-  "I have harder and less sympathetic with people than perhaps they deserve.",
-  "I am easily irritated by small problems, or by my co-workers and team.",
-  "I feel misunderstood on unappreciated by my co-workers.",
-  "I feel that I have no one to talk to.",
-  "I feel that I am achieving less than I should.",
-  "I feel that I am not getting what I want out of my job.",
-  "Tengo problemas para dormir por pensar en el trabajo.",
-  "Siento ansiedad al pensar en ir a trabajar.",
-  "Me siento desconectado de mis compañeros.",
-  "Siento que mi trabajo no tiene sentido.",
-  "Me falta energía para ser productivo.",
-  "Siento que estoy en el trabajo equivocado.",
-  "Me siento frustrado con mi carrera profesional.",
+  "Me siento agotado y sin energía física o emocional.",
+  "Tengo pensamientos negativos sobre mi trabajo.",
+  "Soy más duro y menos comprensivo con las personas de lo que quizás merecen.",
+  "Me irrito fácilmente por problemas pequeños o por mis compañeros de trabajo y equipo.",
+  "Me siento incomprendido o no valorado por mis compañeros de trabajo.",
+  "Siento que no tengo con quién hablar.",
+  "Siento que estoy logrando menos de lo que debería.",
+  "Siento que no estoy obteniendo lo que quiero de mi trabajo.",
+  "Siento que estoy en la organización o profesión equivocada.",
+  "Estoy frustrado con partes de mi trabajo.",
+  "Siento que la política organizacional o la burocracia frustran mi capacidad de hacer un buen trabajo.",
+  "Siento que hay más trabajo del que prácticamente tengo la capacidad de hacer.",
+  "Siento que no tengo tiempo para hacer muchas de las cosas que son importantes para hacer un trabajo de buena calidad.",
+  "Encuentro que no tengo tiempo para planificar tanto como me gustaría.",
+  "Otras profesiones relativamente tienen más comodidad y flexibilidad.",
 ];
 
 export default function SurveyForm({ onSuccess }: { onSuccess: () => void }) {
@@ -71,14 +71,14 @@ export default function SurveyForm({ onSuccess }: { onSuccess: () => void }) {
   };
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-semibold text-zinc-900">Encuesta Diaria de Burnout</h2>
-      <p className="mt-1 text-sm text-zinc-600">
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-sm">
+      <h2 className="text-xl font-semibold text-white">Encuesta Diaria de Burnout</h2>
+      <p className="mt-1 text-sm text-zinc-400">
         Califica del 1 (Nunca) al 5 (Muy a menudo).
       </p>
 
       {error && (
-        <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+        <div className="mt-4 rounded-lg bg-red-900/50 p-3 text-sm text-red-200 border border-red-800">
           {error}
         </div>
       )}
@@ -86,21 +86,28 @@ export default function SurveyForm({ onSuccess }: { onSuccess: () => void }) {
       <form onSubmit={handleSubmit} className="mt-6 space-y-6">
         {questions.map((q, index) => (
           <div key={index} className="space-y-2">
-            <label className="block text-sm font-medium text-zinc-800">
+            <label className="block text-sm font-medium text-zinc-300">
               {index + 1}. {q}
             </label>
             <div className="flex gap-4">
               {[1, 2, 3, 4, 5].map((val) => (
-                <label key={val} className="flex items-center gap-1 cursor-pointer">
+                <label key={val} className="flex items-center gap-2 cursor-pointer group">
+                  <div className={`
+                    flex h-8 w-8 items-center justify-center rounded-full border text-sm font-medium transition-colors
+                    ${answers[index] === val 
+                      ? "border-blue-500 bg-blue-500 text-white" 
+                      : "border-zinc-700 bg-zinc-800 text-zinc-400 group-hover:border-zinc-600 group-hover:text-zinc-200"}
+                  `}>
+                    {val}
+                  </div>
                   <input
                     type="radio"
                     name={`q-${index}`}
                     value={val}
                     checked={answers[index] === val}
                     onChange={() => handleAnswer(index, val)}
-                    className="h-4 w-4 border-zinc-300 text-zinc-900 focus:ring-zinc-900"
+                    className="sr-only"
                   />
-                  <span className="text-sm text-zinc-600">{val}</span>
                 </label>
               ))}
             </div>
@@ -110,7 +117,7 @@ export default function SurveyForm({ onSuccess }: { onSuccess: () => void }) {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+          className="w-full rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-zinc-200 disabled:opacity-50 transition-colors"
         >
           {loading ? "Enviando..." : "Enviar Encuesta"}
         </button>

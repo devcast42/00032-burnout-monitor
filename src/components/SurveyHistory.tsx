@@ -11,11 +11,11 @@ type Survey = {
 };
 
 function getScoreColor(score: number) {
-  if (score <= 18) return "bg-green-100 text-green-800";
-  if (score <= 32) return "bg-blue-100 text-blue-800";
-  if (score <= 49) return "bg-yellow-100 text-yellow-800";
-  if (score <= 59) return "bg-orange-100 text-orange-800";
-  return "bg-red-100 text-red-800";
+  if (score <= 18) return "bg-green-900/50 text-green-200 border border-green-800";
+  if (score <= 32) return "bg-blue-900/50 text-blue-200 border border-blue-800";
+  if (score <= 49) return "bg-yellow-900/50 text-yellow-200 border border-yellow-800";
+  if (score <= 59) return "bg-orange-900/50 text-orange-200 border border-orange-800";
+  return "bg-red-900/50 text-red-200 border border-red-800";
 }
 
 function getScoreLabel(score: number) {
@@ -39,15 +39,15 @@ export default function SurveyHistory({ refreshKey }: { refreshKey: number }) {
       .finally(() => setLoading(false));
   }, [refreshKey]);
 
-  if (loading) return <div className="text-center py-4">Cargando historial...</div>;
+  if (loading) return <div className="text-center py-4 text-zinc-400">Cargando historial...</div>;
   if (surveys.length === 0) return <div className="text-center py-4 text-zinc-500">No hay encuestas registradas.</div>;
 
   return (
     <div className="space-y-4">
       {surveys.map((survey) => (
-        <div key={survey.id} className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+        <div key={survey.id} className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900 p-4 shadow-sm">
           <div>
-            <div className="text-sm font-medium text-zinc-900">
+            <div className="text-sm font-medium text-zinc-200">
               {new Date(survey.created_at).toLocaleDateString()}
             </div>
             <div className="text-xs text-zinc-500">
