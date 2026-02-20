@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model DailyForm {
+  id             String   @id
+  userId         String
+  indicatorLevel Int
+  responses      Json
+  filledAt       DateTime @default(now())
+  User           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Role {
+  id       Int        @id @default(autoincrement())
+  name     RoleName   @unique
+  UserRole UserRole[]
+}
+
+model User {
+  id                                            String           @id
+  email                                         String           @unique
+  passwordHash                                  String
+  name                                          String
+  createdAt                                     DateTime         @default(now())
+  updatedAt                                     DateTime
+  DailyForm                                     DailyForm[]
+  UserAssignment_UserAssignment_managerIdToUser UserAssignment[] @relation("UserAssignment_managerIdToUser")
+  UserAssignment_UserAssignment_userIdToUser    UserAssignment[] @relation("UserAssignment_userIdToUser")
+  UserRole                                      UserRole[]
+}
+
+model UserAssignment {
+  id                                  String   @id
+  managerId                           String
+  userId                              String
+  assignedAt                          DateTime @default(now())
+  User_UserAssignment_managerIdToUser User     @relation("UserAssignment_managerIdToUser", fields: [managerId], references: [id], onDelete: Cascade)
+  User_UserAssignment_userIdToUser    User     @relation("UserAssignment_userIdToUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([managerId, userId])
+}
+
+model UserRole {
+  userId String
+  roleId Int
+  Role   Role   @relation(fields: [roleId], references: [id])
+  User   User   @relation(fields: [userId], references: [id])
+
+  @@id([userId, roleId])
+}
+
+model surveys {
+  id         String    @id
+  user_id    String
+  date       String
+  score      Int
+  answers    Json
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model users {
+  id            String    @id
+  email         String    @unique
+  name          String
+  role          String
+  manager_id    String?
+  password_hash String
+  surveys       surveys[]
+}
+
+enum RoleName {
+  USER
+  MANAGER
+  DOCTOR
+  ADMIN
+}
+
+// ========== Appointments & Video Calls ==========
+
+model Doctor {
+  id            String        @id @default(uuid())
+  name          String
+  email         String        @unique
+  specialty     String
+  workStartHour Int           @default(8)
+  workEndHour   Int           @default(20)
+  slotDuration  Int           @default(60)
+  appointments  Appointment[]
+  createdAt     DateTime      @default(now())
+}
+
+model Appointment {
+  id            String            @id @default(uuid())
+  doctorId      String
+  doctor        Doctor            @relation(fields: [doctorId], references: [id])
+  patientName   String
+  patientEmail  String
+  date          DateTime
+  durationMin   Int               @default(60)
+  status        AppointmentStatus @default(SCHEDULED)
+  jitsiRoomName String            @unique
+  recording     Recording?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([doctorId])
+  @@index([patientEmail])
+  @@index([date])
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Recording {
+  id            String      @id @default(uuid())
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+  audioUrl      String?
+  transcript    String?
+  transcribedAt DateTime?
+  createdAt     DateTime    @default(now())
+}
