@@ -2,7 +2,7 @@ import { getManagerChain, requireRole } from "@/lib/auth";
 
 export default async function DoctorPage() {
   const user = await requireRole(["doctor"]);
-  const chain = getManagerChain(user);
+  const chain = await getManagerChain(user);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 py-12">

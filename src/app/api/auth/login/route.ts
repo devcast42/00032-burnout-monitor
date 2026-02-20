@@ -7,7 +7,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Credenciales inválidas" }, { status: 400 });
   }
 
-  const user = findUserByCredentials(body.email, body.password);
+  const user = await findUserByCredentials(body.email, body.password);
   if (!user) {
     return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });
   }

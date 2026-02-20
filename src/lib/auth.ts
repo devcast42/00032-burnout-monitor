@@ -2,6 +2,7 @@ import "server-only";
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { pool } from "@/lib/db";
 
 export type Role = "user" | "manager" | "doctor" | "admin";
 
@@ -14,58 +15,25 @@ export type User = {
 };
 
 type StoredUser = User & {
-  password: string;
+  passwordHash: string;
 };
 
-const users: StoredUser[] = [
-  {
-    id: "u1",
-    email: "user@demo.com",
-    name: "Usuario Demo",
-    role: "user",
-    password: "demo123",
-    managerId: "m1",
-  },
-  {
-    id: "m1",
-    email: "manager@demo.com",
-    name: "Manager Demo",
-    role: "manager",
-    password: "demo123",
-    managerId: "m2",
-  },
-  {
-    id: "m2",
-    email: "manager2@demo.com",
-    name: "Manager Superior",
-    role: "manager",
-    password: "demo123",
-    managerId: null,
-  },
-  {
-    id: "d1",
-    email: "doctor@demo.com",
-    name: "Doctora Demo",
-    role: "doctor",
-    password: "demo123",
-    managerId: null,
-  },
-  {
-    id: "a1",
-    email: "admin@demo.com",
-    name: "Admin Demo",
-    role: "admin",
-    password: "demo123",
-    managerId: null,
-  },
-];
+const SESSION_SECRET =
+  process.env.AUTH_SECRET ??
+  ((globalThis as { __authSessionSecret?: string }).__authSessionSecret ??=
+    crypto.randomBytes(32).toString("hex"));
 
-const sessions = new Map<string, { userId: string; createdAt: number }>();
+function signValue(value: string): string {
+  return crypto.createHmac("sha256", SESSION_SECRET).update(value).digest("base64url");
+}
 
-export const demoAccounts = users.map(({ password, ...user }) => ({
-  ...user,
-  password,
-}));
+function verifyValue(value: string, signature: string): boolean {
+  const expected = signValue(value);
+  const expectedBuffer = Buffer.from(expected);
+  const providedBuffer = Buffer.from(signature);
+  if (expectedBuffer.length !== providedBuffer.length) return false;
+  return crypto.timingSafeEqual(expectedBuffer, providedBuffer);
+}
 
 function sanitizeUser(user: StoredUser): User {
   return {
@@ -77,42 +45,115 @@ function sanitizeUser(user: StoredUser): User {
   };
 }
 
-export function findUserByCredentials(email: string, password: string): User | null {
-  const user = users.find(
-    (item) => item.email.toLowerCase() === email.toLowerCase() && item.password === password,
+function parseHash(passwordHash: string): { iterations: number; salt: string; hash: string } | null {
+  const parts = passwordHash.split("$");
+  if (parts.length !== 4 || parts[0] !== "pbkdf2") return null;
+  const iterations = Number(parts[1]);
+  if (!Number.isFinite(iterations)) return null;
+  return { iterations, salt: parts[2], hash: parts[3] };
+}
+
+function verifyPassword(password: string, passwordHash: string): boolean {
+  const parsed = parseHash(passwordHash);
+  if (!parsed) {
+    return passwordHash === password;
+  }
+  const derived = crypto.pbkdf2Sync(
+    password,
+    parsed.salt,
+    parsed.iterations,
+    Buffer.from(parsed.hash, "base64url").length,
+    "sha256",
   );
-  if (!user) return null;
+  const expected = Buffer.from(parsed.hash, "base64url");
+  if (derived.length !== expected.length) return false;
+  return crypto.timingSafeEqual(derived, expected);
+}
+
+function mapRow(row: {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  managerId: string | null;
+  passwordHash?: string;
+}): StoredUser {
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    role: row.role,
+    managerId: row.managerId ?? null,
+    passwordHash: row.passwordHash ?? "",
+  };
+}
+
+export async function findUserByCredentials(
+  email: string,
+  password: string,
+): Promise<User | null> {
+  const result = await pool.query<{
+    id: string;
+    email: string;
+    name: string;
+    role: Role;
+    managerId: string | null;
+    passwordHash: string;
+  }>(
+    `select id, email, name, role, manager_id as "managerId", password_hash as "passwordHash"
+     from users
+     where lower(email) = lower($1)
+     limit 1`,
+    [email],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  const user = mapRow(row);
+  if (!verifyPassword(password, user.passwordHash)) return null;
   return sanitizeUser(user);
 }
 
-export function getUserById(id: string): User | null {
-  const user = users.find((item) => item.id === id);
-  if (!user) return null;
-  return sanitizeUser(user);
+export async function getUserById(id: string): Promise<User | null> {
+  const result = await pool.query<{
+    id: string;
+    email: string;
+    name: string;
+    role: Role;
+    managerId: string | null;
+  }>(
+    `select id, email, name, role, manager_id as "managerId"
+     from users
+     where id = $1
+     limit 1`,
+    [id],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return sanitizeUser(mapRow(row));
 }
 
 export function createSession(userId: string): string {
-  const token = crypto.randomUUID();
-  sessions.set(token, { userId, createdAt: Date.now() });
-  return token;
+  const signature = signValue(userId);
+  return `${userId}.${signature}`;
 }
 
 export function deleteSession(token: string): void {
-  sessions.delete(token);
+  token.toString();
 }
 
-export function getUserBySession(token: string): User | null {
-  const session = sessions.get(token);
-  if (!session) return null;
-  return getUserById(session.userId);
+export async function getUserBySession(token: string): Promise<User | null> {
+  const [userId, signature] = token.split(".");
+  if (!userId || !signature) return null;
+  if (!verifyValue(userId, signature)) return null;
+  return getUserById(userId);
 }
 
-export function getManagerChain(user: User): User[] {
+export async function getManagerChain(user: User): Promise<User[]> {
   const chain: User[] = [];
-  let current = user.managerId ? getUserById(user.managerId) : null;
+  let current = user.managerId ? await getUserById(user.managerId) : null;
   while (current) {
     chain.push(current);
-    current = current.managerId ? getUserById(current.managerId) : null;
+    current = current.managerId ? await getUserById(current.managerId) : null;
   }
   return chain;
 }
