@@ -1,146 +1,80 @@
 import { NextResponse } from "next/server";
 import { getSessionUser, hashPassword } from "@/lib/auth";
-import { pool } from "@/lib/db";
+import { prisma } from "@/lib/db";
 
-export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+type RouteContext = { params: Promise<{ id: string }> };
+
+export async function PUT(request: Request, context: RouteContext) {
   const user = await getSessionUser();
   if (!user || user.role !== "admin") {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const { id } = params;
+  const { id } = await context.params;
   const body = await request.json().catch(() => null);
   if (!body) {
     return NextResponse.json({ error: "Datos incompletos" }, { status: 400 });
   }
 
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
+  // Build user update data
+  const userData: Record<string, unknown> = {};
+  if (body.name) userData.name = body.name;
+  if (body.email) userData.email = body.email;
+  if (body.role) userData.role = body.role;
+  if (body.managerId !== undefined) userData.managerId = body.managerId || null;
+  if (body.password) userData.passwordHash = hashPassword(body.password);
 
-    const updates = [];
-    const values = [];
-    let paramIndex = 1;
-
-  if (body.name) {
-    updates.push(`name = $${paramIndex++}`);
-    values.push(body.name);
-  }
-  if (body.email) {
-    updates.push(`email = $${paramIndex++}`);
-    values.push(body.email);
-  }
-  if (body.role) {
-    updates.push(`role = $${paramIndex++}`);
-    values.push(body.role);
-  }
-  if (body.managerId !== undefined) {
-    updates.push(`manager_id = $${paramIndex++}`);
-    values.push(body.managerId || null);
-  }
-  if (body.password) {
-    updates.push(`password_hash = $${paramIndex++}`);
-    values.push(hashPassword(body.password));
+  // Update user
+  if (Object.keys(userData).length > 0) {
+    await prisma.user.update({
+      where: { id },
+      data: userData,
+    });
   }
 
-  if (updates.length > 0) {
-    values.push(id);
-    await client.query(
-      `UPDATE users SET ${updates.join(", ")} WHERE id = $${paramIndex}`,
-      values
-    );
-  }
+  // Update person data if applicable
+  const targetRole = body.role || (await prisma.user.findUnique({ where: { id }, select: { role: true } }))?.role;
+  if (targetRole === "user") {
+    const personData: Record<string, unknown> = {};
+    if (body.designation !== undefined) personData.designation = body.designation || null;
+    if (body.specialization !== undefined) personData.specialization = body.specialization || null;
+    if (body.workArea !== undefined) personData.workArea = body.workArea || null;
+    if (body.weeklyHours !== undefined) personData.weeklyHours = body.weeklyHours ? parseInt(body.weeklyHours) : null;
+    if (body.address !== undefined) personData.address = body.address || null;
+    if (body.contact !== undefined) personData.contact = body.contact || null;
 
-  // Update person data if user is a regular user
-  if (body.role === "user" || (!body.role && await isUserRole(client, id))) {
-    const personUpdates = [];
-    const personValues = [];
-    let pIndex = 1;
-
-    if (body.designation !== undefined) {
-      personUpdates.push(`designation = $${pIndex++}`);
-      personValues.push(body.designation || null);
-    }
-    if (body.specialization !== undefined) {
-      personUpdates.push(`specialization = $${pIndex++}`);
-      personValues.push(body.specialization || null);
-    }
-    if (body.workArea !== undefined) {
-      personUpdates.push(`work_area = $${pIndex++}`);
-      personValues.push(body.workArea || null);
-    }
-    if (body.weeklyHours !== undefined) {
-      personUpdates.push(`weekly_hours = $${pIndex++}`);
-      personValues.push(body.weeklyHours ? parseInt(body.weeklyHours) : null);
-    }
-    if (body.address !== undefined) {
-      personUpdates.push(`address = $${pIndex++}`);
-      personValues.push(body.address || null);
-    }
-    if (body.contact !== undefined) {
-      personUpdates.push(`contact = $${pIndex++}`);
-      personValues.push(body.contact || null);
-    }
-
-    if (personUpdates.length > 0) {
-      personValues.push(id);
-      
-      // Upsert person record
-      const checkPerson = await client.query("SELECT id FROM persons WHERE user_id = $1", [id]);
-      
-      if (checkPerson.rows.length > 0) {
-        await client.query(
-          `UPDATE persons SET ${personUpdates.join(", ")} WHERE user_id = $${pIndex}`,
-          personValues
-        );
-      } else {
-        await client.query(
-          `INSERT INTO persons (
-            user_id, designation, specialization, work_area, weekly_hours, address, contact
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [
-            id,
-            body.designation || null,
-            body.specialization || null,
-            body.workArea || null,
-            body.weeklyHours ? parseInt(body.weeklyHours) : null,
-            body.address || null,
-            body.contact || null,
-          ]
-        );
-      }
+    if (Object.keys(personData).length > 0) {
+      await prisma.person.upsert({
+        where: { userId: id },
+        update: personData,
+        create: {
+          userId: id,
+          designation: (body.designation as string) || null,
+          specialization: (body.specialization as string) || null,
+          workArea: (body.workArea as string) || null,
+          weeklyHours: body.weeklyHours ? parseInt(body.weeklyHours) : null,
+          address: (body.address as string) || null,
+          contact: (body.contact as string) || null,
+        },
+      });
     }
   }
 
-  await client.query("COMMIT");
   return NextResponse.json({ success: true });
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
 }
 
-async function isUserRole(client: any, userId: string): Promise<boolean> {
-  const res = await client.query("SELECT role FROM users WHERE id = $1", [userId]);
-  return res.rows[0]?.role === "user";
-}
-
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_request: Request, context: RouteContext) {
   const user = await getSessionUser();
   if (!user || user.role !== "admin") {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const { id } = params;
-  await pool.query("DELETE FROM users WHERE id = $1", [id]);
+  const { id } = await context.params;
+
+  // Delete person first if exists (cascade should handle, but explicit is safer)
+  await prisma.person.deleteMany({ where: { userId: id } });
+  await prisma.survey.deleteMany({ where: { userId: id } });
+  await prisma.user.delete({ where: { id } });
 
   return NextResponse.json({ success: true });
 }

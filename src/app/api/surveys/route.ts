@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { pool } from "@/lib/db";
-import { randomUUID } from "crypto";
+import { prisma } from "@/lib/db";
 
 export async function POST(request: Request) {
   const user = await getSessionUser();
@@ -16,25 +15,27 @@ export async function POST(request: Request) {
 
   // Verificar si ya completó la encuesta hoy
   const today = new Date().toISOString().split("T")[0];
-  const existing = await pool.query(
-    "SELECT id FROM surveys WHERE user_id = $1 AND date = $2 LIMIT 1",
-    [user.id, today],
-  );
+  const existing = await prisma.survey.findFirst({
+    where: { userId: user.id, date: today },
+  });
 
-  if (existing.rows.length > 0) {
+  if (existing) {
     return NextResponse.json(
       { error: "Ya has completado la encuesta de hoy" },
       { status: 400 },
     );
   }
 
-  const id = randomUUID();
-  await pool.query(
-    "INSERT INTO surveys (id, user_id, date, score, answers) VALUES ($1, $2, $3, $4, $5)",
-    [id, user.id, today, body.score, JSON.stringify(body.answers)],
-  );
+  const survey = await prisma.survey.create({
+    data: {
+      userId: user.id,
+      date: today,
+      score: body.score,
+      answers: body.answers,
+    },
+  });
 
-  return NextResponse.json({ success: true, id });
+  return NextResponse.json({ success: true, id: survey.id });
 }
 
 export async function GET() {
@@ -43,10 +44,17 @@ export async function GET() {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const result = await pool.query(
-    "SELECT id, date, score, answers, created_at FROM surveys WHERE user_id = $1 ORDER BY date DESC",
-    [user.id],
-  );
+  const surveys = await prisma.survey.findMany({
+    where: { userId: user.id },
+    orderBy: { date: "desc" },
+    select: {
+      id: true,
+      date: true,
+      score: true,
+      answers: true,
+      createdAt: true,
+    },
+  });
 
-  return NextResponse.json({ surveys: result.rows });
+  return NextResponse.json({ surveys });
 }

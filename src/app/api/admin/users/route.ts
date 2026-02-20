@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser, hashPassword } from "@/lib/auth";
-import { pool } from "@/lib/db";
-import { randomUUID } from "crypto";
+import { prisma } from "@/lib/db";
 
 export async function GET() {
   const user = await getSessionUser();
@@ -9,25 +8,27 @@ export async function GET() {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const result = await pool.query(`
-    SELECT 
-      u.id, 
-      u.email, 
-      u.name, 
-      u.role, 
-      u.manager_id,
-      p.designation,
-      p.specialization,
-      p.work_area,
-      p.weekly_hours,
-      p.address,
-      p.contact
-    FROM users u
-    LEFT JOIN persons p ON u.id = p.user_id
-    ORDER BY u.name ASC
-  `);
+  const users = await prisma.user.findMany({
+    orderBy: { name: "asc" },
+    include: { person: true },
+  });
 
-  return NextResponse.json({ users: result.rows });
+  // Map to the expected response format
+  const result = users.map((u) => ({
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    role: u.role,
+    manager_id: u.managerId,
+    designation: u.person?.designation ?? null,
+    specialization: u.person?.specialization ?? null,
+    work_area: u.person?.workArea ?? null,
+    weekly_hours: u.person?.weeklyHours ?? null,
+    address: u.person?.address ?? null,
+    contact: u.person?.contact ?? null,
+  }));
+
+  return NextResponse.json({ users: result });
 }
 
 export async function POST(request: Request) {
@@ -41,59 +42,44 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Datos incompletos" }, { status: 400 });
   }
 
-  const existing = await pool.query("SELECT id FROM users WHERE email = $1", [
-    body.email,
-  ]);
+  const existing = await prisma.user.findUnique({
+    where: { email: body.email },
+  });
 
-  if (existing.rows.length > 0) {
+  if (existing) {
     return NextResponse.json(
       { error: "El email ya está registrado" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
-  const id = randomUUID();
   const passwordHash = hashPassword(body.password);
 
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    
-    await client.query(
-      "INSERT INTO users (id, email, name, role, manager_id, password_hash) VALUES ($1, $2, $3, $4, $5, $6)",
-      [
-        id,
-        body.email,
-        body.name,
-        body.role,
-        body.managerId || null,
-        passwordHash,
-      ]
-    );
+  const newUser = await prisma.user.create({
+    data: {
+      email: body.email,
+      name: body.name,
+      role: body.role,
+      managerId: body.managerId || null,
+      passwordHash,
+      ...(body.role === "user"
+        ? {
+          person: {
+            create: {
+              designation: body.designation || null,
+              specialization: body.specialization || null,
+              workArea: body.workArea || null,
+              weeklyHours: body.weeklyHours
+                ? parseInt(body.weeklyHours)
+                : null,
+              address: body.address || null,
+              contact: body.contact || null,
+            },
+          },
+        }
+        : {}),
+    },
+  });
 
-    if (body.role === "user") {
-      await client.query(
-        `INSERT INTO persons (
-          user_id, designation, specialization, work_area, weekly_hours, address, contact
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [
-          id,
-          body.designation || null,
-          body.specialization || null,
-          body.workArea || null,
-          body.weeklyHours ? parseInt(body.weeklyHours) : null,
-          body.address || null,
-          body.contact || null,
-        ]
-      );
-    }
-
-    await client.query("COMMIT");
-    return NextResponse.json({ success: true, id });
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
+  return NextResponse.json({ success: true, id: newUser.id });
 }

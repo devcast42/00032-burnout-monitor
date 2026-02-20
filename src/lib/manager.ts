@@ -1,5 +1,5 @@
 import "server-only";
-import { pool } from "@/lib/db";
+import { prisma } from "@/lib/db";
 
 export type TeamMember = {
   id: string;
@@ -13,39 +13,27 @@ export type TeamMember = {
 };
 
 export async function getTeamMembers(managerId: string): Promise<TeamMember[]> {
-  const result = await pool.query(
-    `
-    SELECT
-      u.id,
-      u.name,
-      u.email,
-      s.date as "surveyDate",
-      s.score as "surveyScore",
-      s.created_at as "surveyCreatedAt"
-    FROM users u
-    LEFT JOIN LATERAL (
-      SELECT date, score, created_at
-      FROM surveys
-      WHERE user_id = u.id
-      ORDER BY date DESC
-      LIMIT 1
-    ) s ON true
-    WHERE u.manager_id = $1
-    ORDER BY u.name ASC
-    `,
-    [managerId]
-  );
+  const subordinates = await prisma.user.findMany({
+    where: { managerId },
+    orderBy: { name: "asc" },
+    include: {
+      surveys: {
+        orderBy: { date: "desc" },
+        take: 1,
+      },
+    },
+  });
 
-  return result.rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    email: row.email,
-    lastSurvey: row.surveyDate
+  return subordinates.map((user) => ({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    lastSurvey: user.surveys[0]
       ? {
-          date: row.surveyDate,
-          score: row.surveyScore,
-          createdAt: row.surveyCreatedAt,
-        }
+        date: user.surveys[0].date,
+        score: user.surveys[0].score,
+        createdAt: user.surveys[0].createdAt?.toISOString() ?? "",
+      }
       : null,
   }));
 }
