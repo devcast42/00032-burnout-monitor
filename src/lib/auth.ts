@@ -2,7 +2,7 @@ import "server-only";
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { pool } from "@/lib/db";
+import { prisma } from "@/lib/db";
 
 export type Role = "user" | "manager" | "doctor" | "admin";
 
@@ -79,66 +79,43 @@ export function hashPassword(password: string): string {
   return `pbkdf2$${iterations}$${salt}$${hash}`;
 }
 
-function mapRow(row: {
-  id: string;
-  email: string;
-  name: string;
-  role: Role;
-  managerId: string | null;
-  passwordHash?: string;
-}): StoredUser {
-  return {
-    id: row.id,
-    email: row.email,
-    name: row.name,
-    role: row.role,
-    managerId: row.managerId ?? null,
-    passwordHash: row.passwordHash ?? "",
-  };
-}
-
 export async function findUserByCredentials(
   email: string,
   password: string,
 ): Promise<User | null> {
-  const result = await pool.query<{
-    id: string;
-    email: string;
-    name: string;
-    role: Role;
-    managerId: string | null;
-    passwordHash: string;
-  }>(
-    `select id, email, name, role, manager_id as "managerId", password_hash as "passwordHash"
-     from users
-     where lower(email) = lower($1)
-     limit 1`,
-    [email],
-  );
-  const row = result.rows[0];
+  const row = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+  });
+
   if (!row) return null;
-  const user = mapRow(row);
-  if (!verifyPassword(password, user.passwordHash)) return null;
-  return sanitizeUser(user);
+
+  const stored: StoredUser = {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    role: row.role as Role,
+    managerId: row.managerId ?? null,
+    passwordHash: row.passwordHash,
+  };
+
+  if (!verifyPassword(password, stored.passwordHash)) return null;
+  return sanitizeUser(stored);
 }
 
 export async function getUserById(id: string): Promise<User | null> {
-  const result = await pool.query<{
-    id: string;
-    email: string;
-    name: string;
-    role: Role;
-    managerId: string | null;
-  }>(
-    `select id, email, name, role, manager_id as "managerId"
-     from users
-     where id = $1
-     limit 1`,
-    [id],
-  );
-  const row = result.rows[0];
+  const row = await prisma.user.findUnique({
+    where: { id },
+  });
+
   if (!row) return null;
-  return sanitizeUser(mapRow(row));
+
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    role: row.role as Role,
+    managerId: row.managerId ?? null,
+  };
 }
 
 export function createSession(userId: string): string {
