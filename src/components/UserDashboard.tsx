@@ -4,10 +4,12 @@ import { useState } from "react";
 import SurveyForm from "@/components/SurveyForm";
 import SurveyHistory from "@/components/SurveyHistory";
 import LogoutButton from "@/components/LogoutButton";
+import Modal from "@/components/Modal";
 import { User } from "@/lib/auth";
 
 export default function UserDashboard({ user, chain }: { user: User, chain: User[] }) {
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isSurveyOpen, setIsSurveyOpen] = useState(false);
 
   return (
     <div className="flex min-h-screen justify-center bg-zinc-950 px-6 py-12">
@@ -41,14 +43,31 @@ export default function UserDashboard({ user, chain }: { user: User, chain: User
 
         <div className="grid gap-8 md:grid-cols-2">
           <div>
-            <h2 className="mb-4 text-lg font-semibold text-white">Nueva Encuesta</h2>
-            <SurveyForm onSuccess={() => setRefreshKey((k) => k + 1)} />
+            <h2 className="mb-4 text-lg font-semibold text-white">Encuesta Diaria</h2>
+            <button
+              onClick={() => setIsSurveyOpen(true)}
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-900 p-8 text-center hover:bg-zinc-800 transition-colors group"
+            >
+              <div className="mb-2 text-3xl text-zinc-500 group-hover:text-white transition-colors">+</div>
+              <div className="text-sm font-medium text-zinc-400 group-hover:text-white transition-colors">
+                Realizar nueva encuesta
+              </div>
+            </button>
           </div>
           <div>
             <h2 className="mb-4 text-lg font-semibold text-white">Historial</h2>
             <SurveyHistory refreshKey={refreshKey} />
           </div>
         </div>
+
+        <Modal isOpen={isSurveyOpen} onClose={() => setIsSurveyOpen(false)}>
+          <SurveyForm
+            onSuccess={() => {
+              setRefreshKey((k) => k + 1);
+              setIsSurveyOpen(false);
+            }}
+          />
+        </Modal>
       </div>
     </div>
   );

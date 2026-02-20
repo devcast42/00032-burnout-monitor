@@ -70,6 +70,15 @@ function verifyPassword(password: string, passwordHash: string): boolean {
   return crypto.timingSafeEqual(derived, expected);
 }
 
+export function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const iterations = 1000;
+  const hash = crypto
+    .pbkdf2Sync(password, salt, iterations, 32, "sha256")
+    .toString("base64url");
+  return `pbkdf2$${iterations}$${salt}$${hash}`;
+}
+
 function mapRow(row: {
   id: string;
   email: string;
