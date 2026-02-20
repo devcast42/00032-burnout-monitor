@@ -24,7 +24,11 @@ export async function getTeamMembers(managerId: string): Promise<TeamMember[]> {
     },
   });
 
-  return subordinates.map((user) => ({
+  type SubordinateWithSurveys = Awaited<ReturnType<typeof prisma.user.findMany>>[number] & {
+    surveys: Awaited<ReturnType<typeof prisma.survey.findMany>>;
+  };
+
+  return (subordinates as SubordinateWithSurveys[]).map((user) => ({
     id: user.id,
     name: user.name,
     email: user.email,

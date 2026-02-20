@@ -13,8 +13,19 @@ export async function GET() {
     include: { person: true },
   });
 
+  type UserWithPerson = Awaited<ReturnType<typeof prisma.user.findMany>>[number] & {
+    person: {
+      designation: string | null;
+      specialization: string | null;
+      workArea: string | null;
+      weeklyHours: number | null;
+      address: string | null;
+      contact: string | null;
+    } | null;
+  };
+
   // Map to the expected response format
-  const result = users.map((u) => ({
+  const result = (users as UserWithPerson[]).map((u) => ({
     id: u.id,
     email: u.email,
     name: u.name,
