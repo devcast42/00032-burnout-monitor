@@ -18,16 +18,16 @@ export async function POST(request: Request) {
 
   // Verificar si ya completó la encuesta hoy
   const today = new Date().toISOString().split("T")[0];
-  const existing = await prisma.survey.findFirst({
-    where: { userId: user.id, date: today },
-  });
+  // const existing = await prisma.survey.findFirst({
+  //   where: { userId: user.id, date: today },
+  // });
 
-  if (existing) {
-    return NextResponse.json(
-      { error: "Ya has completado la encuesta de hoy" },
-      { status: 400 },
-    );
-  }
+  // if (existing) {
+  //   return NextResponse.json(
+  //     { error: "Ya has completado la encuesta de hoy" },
+  //     { status: 400 },
+  //   );
+  // }
 
   const survey = await prisma.survey.create({
     data: {
