@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const questions = [
   "Me siento agotado y sin energía física o emocional.",
@@ -20,7 +20,7 @@ const questions = [
   "Otras profesiones relativamente tienen más comodidad y flexibilidad.",
 ];
 
-export default function SurveyForm({ onSuccess }: { onSuccess: () => void }) {
+export default function SurveyForm({ onSuccess, setFooterContent }: { onSuccess: () => void, setFooterContent?: (content: React.ReactNode) => void }) {
   const [answers, setAnswers] = useState<number[]>(new Array(15).fill(0));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +33,8 @@ export default function SurveyForm({ onSuccess }: { onSuccess: () => void }) {
 
   const calculateScore = () => answers.reduce((a, b) => a + b, 0);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (answers.some((a) => a === 0)) {
       setError("Por favor responde todas las preguntas.");
       return;
@@ -70,58 +70,72 @@ export default function SurveyForm({ onSuccess }: { onSuccess: () => void }) {
     }
   };
 
+  useEffect(() => {
+    if (setFooterContent) {
+      setFooterContent(
+        <button
+          onClick={() => handleSubmit()}
+          disabled={loading}
+          className="w-full rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-zinc-200 transition-colors disabled:opacity-50"
+        >
+          {loading ? "Enviando..." : "Enviar Encuesta"}
+        </button>
+      );
+    }
+  }, [loading, answers]);
+
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-sm">
-      <h2 className="text-xl font-semibold text-white">Encuesta Diaria de Burnout</h2>
-      <p className="mt-1 text-sm text-zinc-400">
+    <div className="space-y-6">
+      <p className="text-sm text-zinc-400">
         Califica del 1 (Nunca) al 5 (Muy a menudo).
       </p>
 
       {error && (
-        <div className="mt-4 rounded-lg bg-red-900/50 p-3 text-sm text-red-200 border border-red-800">
+        <div className="rounded-lg bg-red-900/50 p-3 text-sm text-red-200 border border-red-800">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+      <div className="space-y-8">
         {questions.map((q, index) => (
-          <div key={index} className="space-y-2">
+          <div key={index} className="space-y-3">
             <label className="block text-sm font-medium text-zinc-300">
               {index + 1}. {q}
             </label>
-            <div className="flex gap-4">
+            <div className="flex justify-between gap-2">
               {[1, 2, 3, 4, 5].map((val) => (
-                <label key={val} className="flex items-center gap-2 cursor-pointer group">
-                  <div className={`
-                    flex h-8 w-8 items-center justify-center rounded-full border text-sm font-medium transition-colors
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => {
+                    const newAnswers = [...answers];
+                    newAnswers[index] = val;
+                    setAnswers(newAnswers);
+                  }}
+                  className={`
+                    flex h-10 w-10 items-center justify-center rounded-full border text-sm font-medium transition-colors
                     ${answers[index] === val 
                       ? "border-blue-500 bg-blue-500 text-white" 
-                      : "border-zinc-700 bg-zinc-800 text-zinc-400 group-hover:border-zinc-600 group-hover:text-zinc-200"}
-                  `}>
-                    {val}
-                  </div>
-                  <input
-                    type="radio"
-                    name={`q-${index}`}
-                    value={val}
-                    checked={answers[index] === val}
-                    onChange={() => handleAnswer(index, val)}
-                    className="sr-only"
-                  />
-                </label>
+                      : "border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"}
+                  `}
+                >
+                  {val}
+                </button>
               ))}
             </div>
           </div>
         ))}
+      </div>
 
+      {!setFooterContent && (
         <button
-          type="submit"
+          onClick={() => handleSubmit()}
           disabled={loading}
-          className="w-full rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-zinc-200 disabled:opacity-50 transition-colors"
+          className="w-full rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-zinc-200 transition-colors disabled:opacity-50 mt-6"
         >
           {loading ? "Enviando..." : "Enviar Encuesta"}
         </button>
-      </form>
+      )}
     </div>
   );
 }

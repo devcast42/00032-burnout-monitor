@@ -118,7 +118,11 @@ export default function AdminDashboard({ user }: { user: User }) {
           )}
         </div>
 
-        <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+        <Modal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)}
+          title={editingUser ? "Editar Usuario" : "Crear Usuario"}
+        >
           <UserForm
             user={editingUser}
             onSuccess={() => {

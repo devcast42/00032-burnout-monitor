@@ -115,7 +115,11 @@ export default function ManagerDashboard({
           </div>
         </div>
 
-        <Modal isOpen={isSurveyOpen} onClose={() => setIsSurveyOpen(false)}>
+        <Modal 
+          isOpen={isSurveyOpen} 
+          onClose={() => setIsSurveyOpen(false)}
+          title="Nueva Encuesta Diaria"
+        >
           <SurveyForm
             onSuccess={() => {
               setRefreshKey((k) => k + 1);

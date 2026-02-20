@@ -81,10 +81,6 @@ export default function UserForm({ user, onSuccess, onCancel }: UserFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <h2 className="text-lg font-semibold text-white mb-4">
-        {user ? "Editar Usuario" : "Crear Usuario"}
-      </h2>
-
       {error && (
         <div className="rounded-lg bg-red-900/50 p-3 text-sm text-red-200 border border-red-800">
           {error}
