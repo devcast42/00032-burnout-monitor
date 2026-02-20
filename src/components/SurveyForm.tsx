@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 const questions = [
  "Me siento agotado y sin energía física o emocional.",
@@ -43,49 +43,53 @@ export default function SurveyForm({
 
  const calculateScore = () => answers.reduce((a, b) => a + b, 0);
 
- const handleSubmit = async (e?: React.FormEvent) => {
-  e?.preventDefault();
-  if (answers.some((a) => a === 0)) {
-   setError("Por favor responde todas las preguntas.");
-   return;
-  }
+ const handleSubmit = useCallback(
+  async (e?: React.FormEvent) => {
+   e?.preventDefault();
+   if (answers.some((a) => a === 0)) {
+    setError("Por favor responde todas las preguntas.");
+    return;
+   }
 
-  setLoading(true);
-  setError(null);
+   setLoading(true);
+   setError(null);
 
-  try {
-   const response = await fetch("/api/surveys", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-     answers,
-     score: calculateScore(),
-    }),
-   });
+   try {
+    const score = answers.reduce((a, b) => a + b, 0);
+    const response = await fetch("/api/surveys", {
+     method: "POST",
+     headers: { "Content-Type": "application/json" },
+     body: JSON.stringify({
+      answers,
+      score,
+     }),
+    });
 
-   if (!response.ok) {
+    if (!response.ok) {
+     const data = await response.json();
+     throw new Error(data.error || "Error al enviar la encuesta");
+    }
+
     const data = await response.json();
-    throw new Error(data.error || "Error al enviar la encuesta");
-   }
 
-   const data = await response.json();
-
-   if (data.autoAppointment) {
-    setAutoAppointment(data.autoAppointment);
-    // Don't close the modal yet — show the appointment notification first
-   } else {
-    onSuccess();
+    if (data.autoAppointment) {
+     setAutoAppointment(data.autoAppointment);
+     // Don't close the modal yet — show the appointment notification first
+    } else {
+     onSuccess();
+    }
+   } catch (err) {
+    if (err instanceof Error) {
+     setError(err.message);
+    } else {
+     setError("Ocurrió un error desconocido");
+    }
+   } finally {
+    setLoading(false);
    }
-  } catch (err) {
-   if (err instanceof Error) {
-    setError(err.message);
-   } else {
-    setError("Ocurrió un error desconocido");
-   }
-  } finally {
-   setLoading(false);
-  }
- };
+  },
+  [answers, onSuccess],
+ );
 
  useEffect(() => {
   if (setFooterContent) {
@@ -110,7 +114,14 @@ export default function SurveyForm({
     );
    }
   }
- }, [loading, answers, autoAppointment]);
+ }, [
+  loading,
+  answers,
+  autoAppointment,
+  handleSubmit,
+  onSuccess,
+  setFooterContent,
+ ]);
 
  if (autoAppointment) {
   const apptDate = new Date(autoAppointment.date);
