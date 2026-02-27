@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
     dynamicFields,
-    getBurnoutProfile,
     isStaticProfileComplete,
     type BurnoutProfile,
 } from "@/lib/burnoutProfileData";
@@ -35,18 +34,22 @@ export default function BurnoutDynamicForm({
     const handleSubmit = async () => {
         if (!allAnswered) return;
 
-        const staticProfile = getBurnoutProfile();
-        if (!isStaticProfileComplete(staticProfile)) {
-            onError(
-                "Completa todos los campos de tu perfil clínico en la pestaña Usuario antes de analizar.",
-            );
-            return;
-        }
-
-        const fullPayload: BurnoutProfile = { ...staticProfile, ...dynamicAnswers };
-
         setLoading(true);
         try {
+            // Fetch static profile from DB
+            const profileRes = await fetch("/api/profile");
+            if (!profileRes.ok) throw new Error("Error al leer perfil");
+            const { profile: staticProfile } = await profileRes.json();
+
+            if (!isStaticProfileComplete(staticProfile)) {
+                onError(
+                    "Completa todos los campos de tu perfil clínico en la pestaña Usuario antes de analizar.",
+                );
+                return;
+            }
+
+            const fullPayload: BurnoutProfile = { ...staticProfile, ...dynamicAnswers };
+
             const res = await fetch(
                 "https://burnout-api-5o7t.onrender.com/predict",
                 {

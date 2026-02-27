@@ -1,33 +1,61 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
     staticFields,
-    getBurnoutProfile,
-    saveBurnoutProfile,
     type BurnoutProfile,
 } from "@/lib/burnoutProfileData";
 
 export default function BurnoutProfileCards() {
     const [profile, setProfile] = useState<BurnoutProfile | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        setProfile(getBurnoutProfile());
+        fetch("/api/profile")
+            .then((r) => r.json())
+            .then((data) => setProfile(data.profile))
+            .catch(() => setProfile(Object.fromEntries(staticFields.map((f) => [f.key, 0]))))
+            .finally(() => setLoading(false));
     }, []);
+
+    const saveProfile = useCallback(async (updated: BurnoutProfile) => {
+        setSaving(true);
+        try {
+            await fetch("/api/profile", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updated),
+            });
+        } catch (err) {
+            console.error("Error saving profile:", err);
+        } finally {
+            setSaving(false);
+        }
+    }, []);
+
+    if (loading) {
+        return <div className="text-sm text-zinc-500 py-4 text-center">Cargando perfil...</div>;
+    }
 
     if (!profile) return null;
 
     const handleChange = (key: string, value: number) => {
         const updated = { ...profile, [key]: value };
         setProfile(updated);
-        saveBurnoutProfile(updated);
+        saveProfile(updated);
     };
 
     return (
         <div className="space-y-3">
-            <h3 className="text-sm font-medium text-zinc-400">
-                Datos de perfil clínico
-            </h3>
+            <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-zinc-400">
+                    Datos de perfil clínico
+                </h3>
+                {saving && (
+                    <span className="text-xs text-zinc-500">Guardando...</span>
+                )}
+            </div>
             <div className="grid grid-cols-1 gap-3">
                 {staticFields.map((field) => (
                     <div

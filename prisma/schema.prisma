@@ -27,15 +27,26 @@ model User {
 }
 
 model Person {
-  id             String  @id @default(uuid())
-  userId         String  @unique @map("user_id")
-  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  designation    String?
-  specialization String?
-  workArea       String? @map("work_area")
-  weeklyHours    Int?    @map("weekly_hours")
-  address        String?
-  contact        String?
+  id               String  @id @default(uuid())
+  userId           String  @unique @map("user_id")
+  user             User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Burnout static profile fields (coded as integers)
+  gender           Int?
+  ageCode          Int?    @map("age_code")
+  bmi              Int?
+  designation      Int?
+  specialization   Int?
+  workingPlace     Int?    @map("working_place")
+  duration         Int?
+  privatePractice  Int?    @map("private_practice")
+  workingHour      Int?    @map("working_hour")
+  weeklyVacation   Int?    @map("weekly_vacation")
+  maritalStatus    Int?    @map("marital_status")
+  income           Int?
+  familyMembers    Int?    @map("family_members")
+  liabilities      Int?
+  stayingWithFamily Int?   @map("staying_with_family")
 
   @@map("persons")
 }

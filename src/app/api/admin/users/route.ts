@@ -15,12 +15,11 @@ export async function GET() {
 
   type UserWithPerson = Awaited<ReturnType<typeof prisma.user.findMany>>[number] & {
     person: {
-      designation: string | null;
-      specialization: string | null;
-      workArea: string | null;
-      weeklyHours: number | null;
-      address: string | null;
-      contact: string | null;
+      designation: number | null;
+      specialization: number | null;
+      gender: number | null;
+      ageCode: number | null;
+      bmi: number | null;
     } | null;
   };
 
@@ -33,10 +32,6 @@ export async function GET() {
     manager_id: u.managerId,
     designation: u.person?.designation ?? null,
     specialization: u.person?.specialization ?? null,
-    work_area: u.person?.workArea ?? null,
-    weekly_hours: u.person?.weeklyHours ?? null,
-    address: u.person?.address ?? null,
-    contact: u.person?.contact ?? null,
   }));
 
   return NextResponse.json({ users: result });
@@ -77,14 +72,8 @@ export async function POST(request: Request) {
         ? {
           person: {
             create: {
-              designation: body.designation || null,
-              specialization: body.specialization || null,
-              workArea: body.workArea || null,
-              weeklyHours: body.weeklyHours
-                ? parseInt(body.weeklyHours)
-                : null,
-              address: body.address || null,
-              contact: body.contact || null,
+              designation: body.designation ? parseInt(body.designation) : null,
+              specialization: body.specialization ? parseInt(body.specialization) : null,
             },
           },
         }

@@ -4,7 +4,7 @@ export type BurnoutField = {
     options: { value: number; label: string }[];
 };
 
-// ========== STATIC FIELDS (Profile tab, saved in localStorage) ==========
+// ========== STATIC FIELDS (Profile tab, stored in DB via /api/profile) ==========
 
 export const staticFields: BurnoutField[] = [
     {
@@ -293,27 +293,7 @@ export const dynamicFields: BurnoutField[] = [
 // All fields combined
 export const burnoutFields: BurnoutField[] = [...staticFields, ...dynamicFields];
 
-const STORAGE_KEY = "burnout-profile";
-
 export type BurnoutProfile = Record<string, number>;
-
-export const defaultStaticProfile: BurnoutProfile = Object.fromEntries(
-    staticFields.map((f) => [f.key, 0]),
-);
-
-export function getBurnoutProfile(): BurnoutProfile {
-    if (typeof window === "undefined") return { ...defaultStaticProfile };
-    try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) return JSON.parse(stored);
-    } catch { }
-    return { ...defaultStaticProfile };
-}
-
-export function saveBurnoutProfile(profile: BurnoutProfile) {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-}
 
 export function isStaticProfileComplete(profile: BurnoutProfile): boolean {
     return staticFields.every((f) => profile[f.key] !== 0 && profile[f.key] !== undefined);

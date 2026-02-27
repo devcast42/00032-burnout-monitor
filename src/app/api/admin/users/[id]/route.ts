@@ -36,12 +36,8 @@ export async function PUT(request: Request, context: RouteContext) {
   const targetRole = body.role || (await prisma.user.findUnique({ where: { id }, select: { role: true } }))?.role;
   if (targetRole === "user") {
     const personData: Record<string, unknown> = {};
-    if (body.designation !== undefined) personData.designation = body.designation || null;
-    if (body.specialization !== undefined) personData.specialization = body.specialization || null;
-    if (body.workArea !== undefined) personData.workArea = body.workArea || null;
-    if (body.weeklyHours !== undefined) personData.weeklyHours = body.weeklyHours ? parseInt(body.weeklyHours) : null;
-    if (body.address !== undefined) personData.address = body.address || null;
-    if (body.contact !== undefined) personData.contact = body.contact || null;
+    if (body.designation !== undefined) personData.designation = body.designation ? parseInt(body.designation) : null;
+    if (body.specialization !== undefined) personData.specialization = body.specialization ? parseInt(body.specialization) : null;
 
     if (Object.keys(personData).length > 0) {
       await prisma.person.upsert({
@@ -49,12 +45,7 @@ export async function PUT(request: Request, context: RouteContext) {
         update: personData,
         create: {
           userId: id,
-          designation: (body.designation as string) || null,
-          specialization: (body.specialization as string) || null,
-          workArea: (body.workArea as string) || null,
-          weeklyHours: body.weeklyHours ? parseInt(body.weeklyHours) : null,
-          address: (body.address as string) || null,
-          contact: (body.contact as string) || null,
+          ...personData,
         },
       });
     }
