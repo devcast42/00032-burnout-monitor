@@ -10,7 +10,7 @@ export async function GET(_request: Request, context: RouteContext) {
     const appointment = await prisma.appointment.findUnique({
         where: { id },
         include: {
-            doctor: { select: { name: true, specialty: true, email: true } },
+            doctor: { select: { name: true, email: true } },
             recording: true,
         },
     });
@@ -50,7 +50,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     const updated = await prisma.appointment.update({
         where: { id },
         data: { status: body.status },
-        include: { doctor: { select: { name: true, specialty: true } } },
+        include: { doctor: { select: { name: true } } },
     });
 
     return NextResponse.json({ appointment: updated });
