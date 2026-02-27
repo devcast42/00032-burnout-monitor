@@ -66,6 +66,8 @@ model Doctor {
   slotDuration  Int           @default(60)
   appointments  Appointment[]
   createdAt     DateTime      @default(now())
+
+  @@map("doctors")
 }
 
 model Appointment {
@@ -85,6 +87,7 @@ model Appointment {
   @@index([doctorId])
   @@index([patientEmail])
   @@index([date])
+  @@map("appointments")
 }
 
 enum AppointmentStatus {
@@ -102,4 +105,6 @@ model Recording {
   transcript    String?
   transcribedAt DateTime?
   createdAt     DateTime    @default(now())
+
+  @@map("recordings")
 }
