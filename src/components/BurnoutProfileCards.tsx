@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import {
-    burnoutFields,
+    staticFields,
     getBurnoutProfile,
     saveBurnoutProfile,
     type BurnoutProfile,
@@ -29,7 +29,7 @@ export default function BurnoutProfileCards() {
                 Datos de perfil clínico
             </h3>
             <div className="grid grid-cols-1 gap-3">
-                {burnoutFields.map((field) => (
+                {staticFields.map((field) => (
                     <div
                         key={field.key}
                         className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 transition-colors hover:border-zinc-700"

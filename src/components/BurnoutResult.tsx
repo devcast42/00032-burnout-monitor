@@ -9,9 +9,11 @@ type PredictionResult = {
 export default function BurnoutResult({
     result,
     onClose,
+    onScheduleAppointment,
 }: {
     result: PredictionResult;
     onClose: () => void;
+    onScheduleAppointment?: () => void;
 }) {
     const probability = (result.burnout_probability * 100).toFixed(1);
     const isBurnout = result.prediction === 1;
@@ -59,6 +61,15 @@ export default function BurnoutResult({
                     {isBurnout ? "1 — Tiene Burnout" : "0 — No tiene Burnout"}
                 </p>
             </div>
+
+            {isBurnout && onScheduleAppointment && (
+                <button
+                    onClick={onScheduleAppointment}
+                    className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500 transition-colors"
+                >
+                    📅 Agendar una cita
+                </button>
+            )}
 
             <button
                 onClick={onClose}

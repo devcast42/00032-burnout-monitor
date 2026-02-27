@@ -4,7 +4,9 @@ export type BurnoutField = {
     options: { value: number; label: string }[];
 };
 
-export const burnoutFields: BurnoutField[] = [
+// ========== STATIC FIELDS (Profile tab, saved in localStorage) ==========
+
+export const staticFields: BurnoutField[] = [
     {
         key: "Gender",
         label: "Género",
@@ -181,6 +183,11 @@ export const burnoutFields: BurnoutField[] = [
             { value: 2, label: "No" },
         ],
     },
+];
+
+// ========== DYNAMIC FIELDS (Asked each time user clicks "Analizar") ==========
+
+export const dynamicFields: BurnoutField[] = [
     {
         key: "Vacation_with_Family",
         label: "Vacaciones con familia",
@@ -216,7 +223,7 @@ export const burnoutFields: BurnoutField[] = [
     },
     {
         key: "Feelings",
-        label: "Sentimientos",
+        label: "¿Cómo te sientes hoy?",
         options: [
             { value: 1, label: "Monótono" },
             { value: 2, label: "Bien" },
@@ -228,7 +235,7 @@ export const burnoutFields: BurnoutField[] = [
     },
     {
         key: "Conflict",
-        label: "Conflictos con",
+        label: "¿Conflictos recientes con...?",
         options: [
             { value: 1, label: "Compañeros de trabajo" },
             { value: 2, label: "Familiares" },
@@ -238,7 +245,7 @@ export const burnoutFields: BurnoutField[] = [
     },
     {
         key: "Dissatisfaction",
-        label: "Insatisfacción",
+        label: "¿Qué sientes actualmente?",
         options: [
             { value: 1, label: "Ansiedad" },
             { value: 2, label: "Fatiga" },
@@ -252,7 +259,7 @@ export const burnoutFields: BurnoutField[] = [
     },
     {
         key: "Mental_Disturbances",
-        label: "Perturbaciones mentales",
+        label: "¿Qué necesitas ahora?",
         options: [
             { value: 1, label: "Cambiar de trabajo" },
             { value: 2, label: "Tomar medicación" },
@@ -267,7 +274,7 @@ export const burnoutFields: BurnoutField[] = [
     },
     {
         key: "Politics",
-        label: "Política organizacional",
+        label: "¿La política organizacional te afecta?",
         options: [
             { value: 1, label: "Sí" },
             { value: 2, label: "No" },
@@ -275,7 +282,7 @@ export const burnoutFields: BurnoutField[] = [
     },
     {
         key: "Flexibility",
-        label: "Flexibilidad laboral",
+        label: "¿Tienes flexibilidad laboral?",
         options: [
             { value: 1, label: "Sí" },
             { value: 2, label: "No" },
@@ -283,44 +290,24 @@ export const burnoutFields: BurnoutField[] = [
     },
 ];
 
+// All fields combined
+export const burnoutFields: BurnoutField[] = [...staticFields, ...dynamicFields];
+
 const STORAGE_KEY = "burnout-profile";
 
 export type BurnoutProfile = Record<string, number>;
 
-export const defaultProfile: BurnoutProfile = {
-    Gender: 0,
-    "Age code": 0,
-    BMI: 0,
-    Designation: 0,
-    Specialization: 0,
-    Working_Place: 0,
-    Duration: 0,
-    Private_Practice: 0,
-    Working_Hour: 0,
-    Weekly_Vacation: 0,
-    Marital_Status: 0,
-    Income: 0,
-    Family_members: 0,
-    "Liabilities ": 0,
-    Staying_with_Family: 0,
-    Vacation_with_Family: 0,
-    Family_Functions: 0,
-    Disappointing_Thing: 0,
-    Feelings: 0,
-    Conflict: 0,
-    Dissatisfaction: 0,
-    Mental_Disturbances: 0,
-    Politics: 0,
-    Flexibility: 0,
-};
+export const defaultStaticProfile: BurnoutProfile = Object.fromEntries(
+    staticFields.map((f) => [f.key, 0]),
+);
 
 export function getBurnoutProfile(): BurnoutProfile {
-    if (typeof window === "undefined") return { ...defaultProfile };
+    if (typeof window === "undefined") return { ...defaultStaticProfile };
     try {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) return JSON.parse(stored);
     } catch { }
-    return { ...defaultProfile };
+    return { ...defaultStaticProfile };
 }
 
 export function saveBurnoutProfile(profile: BurnoutProfile) {
@@ -328,6 +315,6 @@ export function saveBurnoutProfile(profile: BurnoutProfile) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
 }
 
-export function isProfileComplete(profile: BurnoutProfile): boolean {
-    return burnoutFields.every((f) => profile[f.key] !== 0);
+export function isStaticProfileComplete(profile: BurnoutProfile): boolean {
+    return staticFields.every((f) => profile[f.key] !== 0 && profile[f.key] !== undefined);
 }
