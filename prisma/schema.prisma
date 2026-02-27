@@ -21,6 +21,8 @@ model User {
   subordinates User[]    @relation("ManagerSubordinates")
   person       Person?
   surveys      Survey[]
+  appointments Appointment[] @relation("PatientAppointments")
+  doctorAppointments Appointment[] @relation("DoctorAppointments")
   createdAt    DateTime? @default(now()) @map("created_at")
 
   @@map("users")
@@ -48,6 +50,11 @@ model Person {
   liabilities      Int?
   stayingWithFamily Int?   @map("staying_with_family")
 
+  // Scheduling fields (for users with role "doctor")
+  workStartHour Int?        @default(8) @map("work_start_hour")
+  workEndHour   Int?        @default(20) @map("work_end_hour")
+  slotDuration  Int?        @default(60) @map("slot_duration")
+
   @@map("persons")
 }
 
@@ -67,33 +74,20 @@ model Survey {
 
 // ========== Appointments & Video Calls ==========
 
-model Doctor {
-  id            String        @id @default(uuid())
-  name          String
-  email         String        @unique
-  specialty     String
-  workStartHour Int           @default(8)
-  workEndHour   Int           @default(20)
-  slotDuration  Int           @default(60)
-  appointments  Appointment[]
-  createdAt     DateTime      @default(now())
-
-  @@map("doctors")
-}
-
 model Appointment {
   id            String            @id @default(uuid())
-  doctorId      String
-  doctor        Doctor            @relation(fields: [doctorId], references: [id])
-  patientName   String
-  patientEmail  String
+  doctorId      String            @map("doctor_id")
+  doctor        User              @relation("DoctorAppointments", fields: [doctorId], references: [id])
+  patientName   String            @map("patient_name")
+  patientEmail  String            @map("patient_email")
+  patient       User?             @relation("PatientAppointments", fields: [patientEmail], references: [email])
   date          DateTime
-  durationMin   Int               @default(60)
+  durationMin   Int               @default(60) @map("duration_min")
   status        AppointmentStatus @default(SCHEDULED)
-  jitsiRoomName String            @unique
+  jitsiRoomName String            @unique @map("jitsi_room_name")
   recording     Recording?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
 
   @@index([doctorId])
   @@index([patientEmail])

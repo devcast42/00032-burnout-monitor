@@ -43,20 +43,22 @@ export async function POST(request: Request) {
 
   if (body.score > BURNOUT_THRESHOLD) {
     try {
-      // Find first available doctor
-      const doctor = await prisma.doctor.findFirst({
+      // Find first available user with doctor role
+      const doctorUser = await prisma.user.findFirst({
+        where: { role: "doctor" },
+        include: { person: true },
         orderBy: { name: "asc" },
       });
 
-      if (doctor) {
+      if (doctorUser && doctorUser.person) {
         // Find next available slot (starting tomorrow)
-        const appointment = await findNextAvailableSlot(doctor, user);
+        const appointment = await findNextAvailableSlot(doctorUser, user);
 
         if (appointment) {
           autoAppointment = {
             id: appointment.id,
-            doctorName: doctor.name,
-            specialty: doctor.specialty,
+            doctorName: doctorUser.name,
+            specialty: "Médico", // Default if not found in Person
             date: appointment.date.toISOString(),
           };
         }
@@ -76,22 +78,27 @@ export async function POST(request: Request) {
 }
 
 async function findNextAvailableSlot(
-  doctor: { id: string; workStartHour: number; workEndHour: number; slotDuration: number },
+  doctorUser: any, // User & { person: Person }
   user: { name: string; email: string },
 ) {
+  const doctorPerson = doctorUser.person;
+  const startHour = doctorPerson.workStartHour ?? 8;
+  const endHour = doctorPerson.workEndHour ?? 20;
+  const slotDuration = doctorPerson.slotDuration ?? 60;
+
   // Check the next 7 days for an available slot
   for (let dayOffset = 1; dayOffset <= 7; dayOffset++) {
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + dayOffset);
 
-    for (let hour = doctor.workStartHour; hour < doctor.workEndHour; hour++) {
+    for (let hour = startHour; hour < endHour; hour++) {
       const slotDate = new Date(targetDate);
       slotDate.setHours(hour, 0, 0, 0);
 
       // Check if slot is already taken
       const existingAppt = await prisma.appointment.findFirst({
         where: {
-          doctorId: doctor.id,
+          doctorId: doctorUser.id,
           date: slotDate,
           status: { in: ["SCHEDULED", "IN_PROGRESS"] },
         },
@@ -115,11 +122,11 @@ async function findNextAvailableSlot(
         const roomId = crypto.randomUUID().slice(0, 8);
         const appointment = await prisma.appointment.create({
           data: {
-            doctorId: doctor.id,
+            doctorId: doctorUser.id,
             patientName: user.name,
             patientEmail: user.email,
             date: slotDate,
-            durationMin: doctor.slotDuration,
+            durationMin: slotDuration,
             jitsiRoomName: `burnout-auto-${roomId}`,
           },
         });

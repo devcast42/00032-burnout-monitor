@@ -15,10 +15,16 @@ export async function GET(request: Request, context: RouteContext) {
         );
     }
 
-    const doctor = await prisma.doctor.findUnique({ where: { id } });
-    if (!doctor) {
+    const doctorUser = await prisma.user.findUnique({
+        where: { id, role: "doctor" },
+        include: { person: true },
+    });
+
+    if (!doctorUser || !doctorUser.person) {
         return NextResponse.json({ error: "Doctor no encontrado" }, { status: 404 });
     }
+
+    const doctorPerson = doctorUser.person;
 
     // Parse the date
     const targetDate = new Date(dateParam + "T00:00:00");
@@ -28,9 +34,11 @@ export async function GET(request: Request, context: RouteContext) {
 
     // Generate all possible slots for this doctor on this date
     const slots: { start: string; end: string; available: boolean }[] = [];
-    const slotMinutes = doctor.slotDuration;
+    const slotMinutes = doctorPerson.slotDuration ?? 60;
+    const workStartHour = doctorPerson.workStartHour ?? 8;
+    const workEndHour = doctorPerson.workEndHour ?? 20;
 
-    for (let hour = doctor.workStartHour; hour < doctor.workEndHour; hour++) {
+    for (let hour = workStartHour; hour < workEndHour; hour++) {
         const startTime = new Date(targetDate);
         startTime.setHours(hour, 0, 0, 0);
 
@@ -72,7 +80,7 @@ export async function GET(request: Request, context: RouteContext) {
     }
 
     return NextResponse.json({
-        doctor: { id: doctor.id, name: doctor.name, specialty: doctor.specialty },
+        doctor: { id: doctorUser.id, name: doctorUser.name, specialty: "Médico" },
         date: dateParam,
         slots,
     });
