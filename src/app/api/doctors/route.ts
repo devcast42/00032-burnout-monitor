@@ -20,7 +20,7 @@ export async function GET() {
     });
 
     // Flatten the result to match the expected format
-    const flattenedDoctors = doctors.map((doc) => ({
+    const flattenedDoctors = doctors.map((doc: any) => ({
         id: doc.id,
         name: doc.name,
         email: doc.email,

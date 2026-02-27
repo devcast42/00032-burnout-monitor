@@ -13,22 +13,16 @@ export async function GET() {
 
     if (user.role === "doctor") {
         // Doctor sees their patients' appointments
-        const doctor = await prisma.doctor.findUnique({
-            where: { email: user.email },
-        });
-        if (!doctor) {
-            return NextResponse.json({ appointments: [] });
-        }
         appointments = await prisma.appointment.findMany({
-            where: { doctorId: doctor.id },
-            include: { doctor: { select: { name: true, specialty: true } } },
+            where: { doctorId: user.id },
+            include: { doctor: { select: { name: true } } },
             orderBy: { date: "desc" },
         });
     } else {
         // User sees their own appointments
         appointments = await prisma.appointment.findMany({
             where: { patientEmail: user.email },
-            include: { doctor: { select: { name: true, specialty: true } } },
+            include: { doctor: { select: { name: true } } },
             orderBy: { date: "desc" },
         });
     }
@@ -50,23 +44,28 @@ export async function POST(request: Request) {
         );
     }
 
-    const doctor = await prisma.doctor.findUnique({
-        where: { id: body.doctorId },
+    const doctorUser = await prisma.user.findUnique({
+        where: { id: body.doctorId, role: "doctor" },
+        include: { person: true },
     });
-    if (!doctor) {
+    if (!doctorUser || !doctorUser.person) {
         return NextResponse.json({ error: "Doctor no encontrado" }, { status: 404 });
     }
 
+    const doctorPerson = doctorUser.person;
     const appointmentDate = new Date(body.date);
     if (isNaN(appointmentDate.getTime())) {
         return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
     }
 
     // Validate slot is within doctor's working hours
-    const hour = appointmentDate.getUTCHours();
-    if (hour < doctor.workStartHour || hour >= doctor.workEndHour) {
+    const hour = appointmentDate.getHours();
+    const workStart = doctorPerson.workStartHour ?? 8;
+    const workEnd = doctorPerson.workEndHour ?? 20;
+
+    if (hour < workStart || hour >= workEnd) {
         return NextResponse.json(
-            { error: `El doctor atiende de ${doctor.workStartHour}:00 a ${doctor.workEndHour}:00` },
+            { error: `El doctor atiende de ${workStart}:00 a ${workEnd}:00` },
             { status: 400 },
         );
     }
@@ -97,10 +96,10 @@ export async function POST(request: Request) {
             patientName: user.name,
             patientEmail: user.email,
             date: appointmentDate,
-            durationMin: doctor.slotDuration,
+            durationMin: doctorPerson.slotDuration ?? 60,
             jitsiRoomName,
         },
-        include: { doctor: { select: { name: true, specialty: true } } },
+        include: { doctor: { select: { name: true } } },
     });
 
     return NextResponse.json({ appointment }, { status: 201 });
