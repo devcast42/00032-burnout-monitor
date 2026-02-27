@@ -6,8 +6,11 @@ import SurveyForm from "@/components/SurveyForm";
 import SurveyHistory from "@/components/SurveyHistory";
 import LogoutButton from "@/components/LogoutButton";
 import Modal from "@/components/Modal";
+import BurnoutProfileCards from "@/components/BurnoutProfileCards";
+import BurnoutResult from "@/components/BurnoutResult";
 import { User } from "@/lib/auth";
-import { Home, Calendar, User as UserIcon, Video, Clock } from "lucide-react";
+import { getBurnoutProfile, isProfileComplete } from "@/lib/burnoutProfileData";
+import { Home, Calendar, User as UserIcon, Video, Clock, Activity } from "lucide-react";
 
 type Tab = "home" | "appointments" | "user";
 
@@ -34,6 +37,35 @@ export default function UserDashboard({
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loadingAppointments, setLoadingAppointments] = useState(false);
+  const [predictionResult, setPredictionResult] = useState<{ prediction: number; burnout_probability: number; status: string } | null>(null);
+  const [isResultOpen, setIsResultOpen] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+
+  const handleAnalyze = async () => {
+    const profile = getBurnoutProfile();
+    if (!isProfileComplete(profile)) {
+      setAnalyzeError("Completa todos los campos de tu perfil clínico antes de analizar.");
+      return;
+    }
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      const res = await fetch("https://burnout-api-5o7t.onrender.com/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profile),
+      });
+      if (!res.ok) throw new Error("Error en la API de predicción");
+      const data = await res.json();
+      setPredictionResult(data);
+      setIsResultOpen(true);
+    } catch {
+      setAnalyzeError("No se pudo conectar con el servicio de predicción. Intenta de nuevo.");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const fetchAppointments = useCallback(async (signal?: AbortSignal) => {
     setLoadingAppointments(true);
@@ -111,6 +143,27 @@ export default function UserDashboard({
                   </div>
                   <div className="text-sm font-medium text-zinc-400 group-hover:text-white transition-colors">
                     Realizar nueva encuesta
+                  </div>
+                </button>
+              </div>
+
+              <div>
+                <h2 className="mb-4 text-lg font-semibold text-white">Análisis de Burnout</h2>
+                {analyzeError && (
+                  <div className="mb-4 rounded-lg bg-red-900/50 p-3 text-sm text-red-200 border border-red-800">
+                    {analyzeError}
+                  </div>
+                )}
+                <button
+                  onClick={handleAnalyze}
+                  disabled={analyzing}
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900 p-8 text-center hover:bg-zinc-800 transition-colors group disabled:opacity-50"
+                >
+                  <div className="mb-2 text-3xl text-zinc-500 group-hover:text-blue-400 transition-colors">
+                    <Activity className="mx-auto" size={36} />
+                  </div>
+                  <div className="text-sm font-medium text-zinc-400 group-hover:text-white transition-colors">
+                    {analyzing ? "Analizando..." : "Analizar"}
                   </div>
                 </button>
               </div>
@@ -244,6 +297,8 @@ export default function UserDashboard({
                   </div>
                 </div>
               </div>
+
+              <BurnoutProfileCards />
             </div>
           )}
         </div>
@@ -295,6 +350,19 @@ export default function UserDashboard({
           }}
           setFooterContent={setModalFooter}
         />
+      </Modal>
+
+      <Modal
+        isOpen={isResultOpen}
+        onClose={() => setIsResultOpen(false)}
+        title="Resultado del Análisis"
+      >
+        {predictionResult && (
+          <BurnoutResult
+            result={predictionResult}
+            onClose={() => setIsResultOpen(false)}
+          />
+        )}
       </Modal>
     </div>
   );
