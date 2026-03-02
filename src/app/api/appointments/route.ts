@@ -15,14 +15,14 @@ export async function GET() {
         // Doctor sees their patients' appointments
         appointments = await prisma.appointment.findMany({
             where: { doctorId: user.id },
-            include: { doctor: { select: { name: true } } },
+            include: { doctor: { select: { name: true, specialty: true } } },
             orderBy: { date: "desc" },
         });
     } else {
         // User sees their own appointments
         appointments = await prisma.appointment.findMany({
             where: { patientEmail: user.email },
-            include: { doctor: { select: { name: true } } },
+            include: { doctor: { select: { name: true, specialty: true } } },
             orderBy: { date: "desc" },
         });
     }
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
             durationMin: doctorPerson.slotDuration ?? 60,
             jitsiRoomName,
         },
-        include: { doctor: { select: { name: true } } },
+        include: { doctor: { select: { name: true, specialty: true } } },
     });
 
     return NextResponse.json({ appointment }, { status: 201 });

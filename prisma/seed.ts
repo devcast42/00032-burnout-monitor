@@ -21,6 +21,7 @@ async function main() {
             name: "Dra. María García",
             email: "doctor@demo.com",
             role: "doctor",
+            specialty: "Psicóloga Clínica",
             passwordHash,
             scheduling: {
                 workStartHour: 8,
@@ -32,6 +33,7 @@ async function main() {
             name: "Dr. Carlos Mendoza",
             email: "carlos.mendoza@demo.com",
             role: "doctor",
+            specialty: "Psiquiatra",
             passwordHash,
             scheduling: {
                 workStartHour: 9,
@@ -43,6 +45,7 @@ async function main() {
             name: "Dra. Ana López",
             email: "ana.lopez@demo.com",
             role: "doctor",
+            specialty: "Psicóloga Organizacional",
             passwordHash,
             scheduling: {
                 workStartHour: 8,
@@ -60,6 +63,7 @@ async function main() {
             update: {
                 name: userData.name,
                 role: userData.role,
+                specialty: userData.specialty,
                 passwordHash: userData.passwordHash,
                 person: {
                     upsert: {
