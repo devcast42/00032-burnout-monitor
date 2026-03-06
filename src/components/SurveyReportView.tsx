@@ -6,6 +6,7 @@ type SurveyReportViewProps = {
     report: string;
     score: number;
     date?: string;
+    reportId?: string;
     onClose?: () => void;
 };
 
@@ -204,49 +205,26 @@ async function downloadReportAsPDF(report: string, score: number, date?: string)
     doc.save(filename);
 }
 
-async function shareReportToWhatsApp(report: string, score: number, date?: string) {
-    const { blob, filename } = await buildPDFBlob(report, score, date);
-    const file = new File([blob], filename, { type: "application/pdf" });
-
-    // Mobile: try native share with file attachment
-    if (typeof navigator !== "undefined" && navigator.share && navigator.canShare?.({ files: [file] })) {
-        try {
-            await navigator.share({
-                title: "Informe de Burnout",
-                text: `Informe de Bienestar - Probabilidad de burnout: ${score}%`,
-                files: [file],
-            });
-            return;
-        } catch {
-            // User cancelled or failed, fall through to desktop flow
-        }
-    }
-
-    // Desktop: download PDF automatically, then open WhatsApp Web
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
+function shareReportToWhatsApp(score: number, reportId?: string) {
     const scoreLabel = score <= 25 ? "Sin riesgo" : score <= 45 ? "Riesgo bajo" : score <= 65 ? "Riesgo moderado" : score <= 80 ? "Riesgo severo" : "Riesgo muy severo";
+
+    // Build PDF URL from the current origin
+    const baseUrl = `${window.location.protocol}//${window.location.host}`;
+    const pdfUrl = reportId
+        ? `${baseUrl}/api/surveys/reports/${reportId}/pdf`
+        : null;
+
     const text = encodeURIComponent(
         `📋 *Informe de Bienestar - Burnout Monitor*\n\n` +
         `🔹 Probabilidad de burnout: *${score}%*\n` +
         `🔹 Nivel: *${scoreLabel}*\n\n` +
-        `📎 _Adjunta el PDF descargado a este mensaje._`
+        (pdfUrl ? `📎 Descarga el informe completo aquí:\n${pdfUrl}` : ``)
     );
 
-    // Small delay so the download starts first
-    setTimeout(() => {
-        window.open(`https://web.whatsapp.com/send?text=${text}`, "_blank");
-    }, 500);
+    window.open(`https://wa.me/?text=${text}`, "_blank");
 }
 
-export default function SurveyReportView({ report, score, date, onClose }: SurveyReportViewProps) {
+export default function SurveyReportView({ report, score, date, reportId, onClose }: SurveyReportViewProps) {
     const scoreInfo = getScoreColor(score);
     const sections = renderMarkdown(report);
 
@@ -325,7 +303,7 @@ export default function SurveyReportView({ report, score, date, onClose }: Surve
                     PDF
                 </button>
                 <button
-                    onClick={() => shareReportToWhatsApp(report, score, date)}
+                    onClick={() => shareReportToWhatsApp(score, reportId)}
                     className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-[#25D366] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#1fba59] transition-colors"
                 >
                     <Share2 size={16} />

@@ -41,16 +41,18 @@ export async function POST(request: Request) {
 
   // ── Generar informe con Gemini ──
   let reportContent: string | null = null;
+  let reportId: string | null = null;
   try {
     const prediction = body.prediction || null;
     reportContent = await generateBurnoutReport(body.score, body.answers as Record<string, number>, prediction);
-    await prisma.surveyReport.create({
+    const surveyReport = await prisma.surveyReport.create({
       data: {
         surveyId: survey.id,
         report: reportContent,
         score: body.score,
       },
     });
+    reportId = surveyReport.id;
   } catch (err) {
     console.error("Error al generar informe con Gemini:", err);
   }
@@ -91,6 +93,7 @@ export async function POST(request: Request) {
     id: survey.id,
     score: body.score,
     report: reportContent,
+    reportId,
     autoAppointment,
   });
 }

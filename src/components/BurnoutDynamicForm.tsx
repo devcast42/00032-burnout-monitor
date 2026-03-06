@@ -12,6 +12,7 @@ type PredictionResult = {
     burnout_probability: number;
     status: string;
     report?: string | null;
+    reportId?: string | null;
 };
 
 export default function BurnoutDynamicForm({
@@ -68,6 +69,7 @@ export default function BurnoutDynamicForm({
 
             // 3. Save survey + generate Gemini report via our API
             let report: string | null = null;
+            let reportId: string | null = null;
             try {
                 const surveyRes = await fetch("/api/surveys", {
                     method: "POST",
@@ -84,12 +86,13 @@ export default function BurnoutDynamicForm({
                 if (surveyRes.ok) {
                     const surveyData = await surveyRes.json();
                     report = surveyData.report || null;
+                    reportId = surveyData.reportId || null;
                 }
             } catch (err) {
                 console.error("Error guardando encuesta:", err);
             }
 
-            onResult({ ...predictionData, report });
+            onResult({ ...predictionData, report, reportId });
         } catch {
             onError(
                 "No se pudo conectar con el servicio de predicción. Intenta de nuevo.",
