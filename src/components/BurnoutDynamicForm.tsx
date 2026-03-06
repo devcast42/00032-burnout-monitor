@@ -11,6 +11,7 @@ type PredictionResult = {
     prediction: number;
     burnout_probability: number;
     status: string;
+    report?: string | null;
 };
 
 export default function BurnoutDynamicForm({
@@ -50,6 +51,7 @@ export default function BurnoutDynamicForm({
 
             const fullPayload: BurnoutProfile = { ...staticProfile, ...dynamicAnswers };
 
+            // 1. Get prediction from external API
             const res = await fetch(
                 "https://burnout-api-5o7t.onrender.com/predict",
                 {
@@ -59,8 +61,35 @@ export default function BurnoutDynamicForm({
                 },
             );
             if (!res.ok) throw new Error("Error en la API");
-            const data = await res.json();
-            onResult(data);
+            const predictionData = await res.json();
+
+            // 2. Use burnout_probability as the score (0-100%)
+            const score = Math.round(predictionData.burnout_probability * 100);
+
+            // 3. Save survey + generate Gemini report via our API
+            let report: string | null = null;
+            try {
+                const surveyRes = await fetch("/api/surveys", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        score,
+                        answers: dynamicAnswers,
+                        prediction: {
+                            prediction: predictionData.prediction,
+                            burnout_probability: predictionData.burnout_probability,
+                        },
+                    }),
+                });
+                if (surveyRes.ok) {
+                    const surveyData = await surveyRes.json();
+                    report = surveyData.report || null;
+                }
+            } catch (err) {
+                console.error("Error guardando encuesta:", err);
+            }
+
+            onResult({ ...predictionData, report });
         } catch {
             onError(
                 "No se pudo conectar con el servicio de predicción. Intenta de nuevo.",
@@ -110,3 +139,4 @@ export default function BurnoutDynamicForm({
         </div>
     );
 }
+

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { generateBurnoutReport } from "@/lib/gemini";
 import crypto from "crypto";
 
 const BURNOUT_THRESHOLD = 50; // Score > 50 out of 75 triggers auto-appointment
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  if (!body || !Array.isArray(body.answers) || typeof body.score !== "number") {
+  if (!body || typeof body.score !== "number" || (!Array.isArray(body.answers) && (typeof body.answers !== "object" || body.answers === null))) {
     return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
   }
 
@@ -37,6 +38,22 @@ export async function POST(request: Request) {
       answers: body.answers,
     },
   });
+
+  // ── Generar informe con Gemini ──
+  let reportContent: string | null = null;
+  try {
+    const prediction = body.prediction || null;
+    reportContent = await generateBurnoutReport(body.score, body.answers as Record<string, number>, prediction);
+    await prisma.surveyReport.create({
+      data: {
+        surveyId: survey.id,
+        report: reportContent,
+        score: body.score,
+      },
+    });
+  } catch (err) {
+    console.error("Error al generar informe con Gemini:", err);
+  }
 
   // ── Auto-agendar cita si score > 50 ──
   let autoAppointment = null;
@@ -73,6 +90,7 @@ export async function POST(request: Request) {
     success: true,
     id: survey.id,
     score: body.score,
+    report: reportContent,
     autoAppointment,
   });
 }

@@ -68,9 +68,21 @@ model Survey {
   date      String
   score     Int
   answers   Json
+  report    SurveyReport?
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
 
   @@map("surveys")
+}
+
+model SurveyReport {
+  id        String   @id @default(uuid())
+  surveyId  String   @unique @map("survey_id")
+  survey    Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  report    String   @db.Text
+  score     Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("survey_reports")
 }
 
 // ========== Appointments & Video Calls ==========
