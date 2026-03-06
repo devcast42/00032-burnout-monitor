@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { User } from "@/lib/auth";
 import { TeamMember } from "@/lib/manager";
 import LogoutButton from "./LogoutButton";
 import SurveyForm from "./SurveyForm";
 import SurveyHistory from "./SurveyHistory";
+import SurveyLineChart from "./SurveyLineChart";
 import Modal from "./Modal";
-import { Home, Calendar, User as UserIcon, Video, Clock } from "lucide-react";
+import { Home, Calendar, User as UserIcon, Video, Clock, ChevronRight, TrendingUp } from "lucide-react";
 
 type Tab = "home" | "appointments" | "user";
 
@@ -22,19 +23,24 @@ type Appointment = {
   doctor: { name: string; specialty: string };
 };
 
+type MemberSurveyData = {
+  date: string;
+  score: number;
+};
+
 function getScoreColor(score: number) {
-  if (score <= 18) return "bg-green-900/50 text-green-200 border border-green-800";
-  if (score <= 32) return "bg-blue-900/50 text-blue-200 border border-blue-800";
-  if (score <= 49) return "bg-yellow-900/50 text-yellow-200 border border-yellow-800";
-  if (score <= 59) return "bg-orange-900/50 text-orange-200 border border-orange-800";
+  if (score <= 25) return "bg-green-900/50 text-green-200 border border-green-800";
+  if (score <= 45) return "bg-blue-900/50 text-blue-200 border border-blue-800";
+  if (score <= 65) return "bg-yellow-900/50 text-yellow-200 border border-yellow-800";
+  if (score <= 80) return "bg-orange-900/50 text-orange-200 border border-orange-800";
   return "bg-red-900/50 text-red-200 border border-red-800";
 }
 
 function getScoreLabel(score: number) {
-  if (score <= 18) return "Sin riesgo";
-  if (score <= 32) return "Riesgo bajo";
-  if (score <= 49) return "Riesgo moderado";
-  if (score <= 59) return "Riesgo severo";
+  if (score <= 25) return "Sin riesgo";
+  if (score <= 45) return "Riesgo bajo";
+  if (score <= 65) return "Riesgo moderado";
+  if (score <= 80) return "Riesgo severo";
   return "Riesgo muy severo";
 }
 
@@ -53,6 +59,12 @@ export default function ManagerDashboard({
   const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [modalFooter, setModalFooter] = useState<React.ReactNode>(null);
 
+  // Member chart modal state
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [memberSurveys, setMemberSurveys] = useState<MemberSurveyData[]>([]);
+  const [loadingMemberSurveys, setLoadingMemberSurveys] = useState(false);
+  const [isMemberChartOpen, setIsMemberChartOpen] = useState(false);
+
   useEffect(() => {
     if (activeTab === "appointments") {
       setLoadingAppointments(true);
@@ -69,6 +81,25 @@ export default function ManagerDashboard({
         .finally(() => setLoadingAppointments(false));
     }
   }, [activeTab]);
+
+  const handleMemberClick = useCallback(async (member: TeamMember) => {
+    setSelectedMember(member);
+    setIsMemberChartOpen(true);
+    setLoadingMemberSurveys(true);
+    setMemberSurveys([]);
+
+    try {
+      const res = await fetch(`/api/manager/team/${member.id}/surveys`);
+      if (res.ok) {
+        const data = await res.json();
+        setMemberSurveys(data.surveys || []);
+      }
+    } catch (err) {
+      console.error("Error fetching member surveys:", err);
+    } finally {
+      setLoadingMemberSurveys(false);
+    }
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -99,8 +130,11 @@ export default function ManagerDashboard({
               <h1 className="text-2xl font-semibold text-white">Hola, {user.name}</h1>
 
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-8 shadow-sm">
-                <h2 className="text-xl font-semibold text-white mb-6">Mi Equipo</h2>
-                
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold text-white">Mi Equipo</h2>
+                  <span className="text-sm text-zinc-500">{team.length} usuario{team.length !== 1 ? "s" : ""}</span>
+                </div>
+
                 {team.length === 0 ? (
                   <p className="text-zinc-500">No tienes usuarios asignados.</p>
                 ) : (
@@ -114,16 +148,23 @@ export default function ManagerDashboard({
                             <th className="px-6 py-3 font-medium">Email</th>
                             <th className="px-6 py-3 font-medium">Última Encuesta</th>
                             <th className="px-6 py-3 font-medium">Estado</th>
+                            <th className="px-6 py-3 font-medium"></th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-800 bg-zinc-900">
                           {team.map((member) => (
-                            <tr key={member.id} className="hover:bg-zinc-800/50 transition-colors">
+                            <tr
+                              key={member.id}
+                              onClick={() => handleMemberClick(member)}
+                              className="hover:bg-zinc-800/50 transition-colors cursor-pointer group"
+                            >
                               <td className="px-6 py-4 font-medium text-white">{member.name}</td>
                               <td className="px-6 py-4">{member.email}</td>
                               <td className="px-6 py-4">
                                 {member.lastSurvey
-                                  ? new Date(member.lastSurvey.date).toLocaleDateString()
+                                  ? new Date(member.lastSurvey.date + "T00:00:00").toLocaleDateString("es-PE", {
+                                    day: "numeric", month: "short",
+                                  })
                                   : "Nunca"}
                               </td>
                               <td className="px-6 py-4">
@@ -133,11 +174,14 @@ export default function ManagerDashboard({
                                       member.lastSurvey.score
                                     )}`}
                                   >
-                                    {getScoreLabel(member.lastSurvey.score)}
+                                    {member.lastSurvey.score}% · {getScoreLabel(member.lastSurvey.score)}
                                   </span>
                                 ) : (
                                   <span className="text-zinc-600 italic">Sin datos</span>
                                 )}
+                              </td>
+                              <td className="px-6 py-4">
+                                <ChevronRight size={16} className="text-zinc-600 group-hover:text-zinc-300 transition-colors" />
                               </td>
                             </tr>
                           ))}
@@ -146,19 +190,28 @@ export default function ManagerDashboard({
                     </div>
 
                     {/* Mobile View */}
-                    <div className="md:hidden space-y-4">
+                    <div className="md:hidden space-y-3">
                       {team.map((member) => (
-                        <div key={member.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4 space-y-3">
-                          <div>
-                            <div className="font-medium text-white">{member.name}</div>
-                            <div className="text-sm text-zinc-500">{member.email}</div>
+                        <button
+                          key={member.id}
+                          onClick={() => handleMemberClick(member)}
+                          className="w-full rounded-xl border border-zinc-800 bg-zinc-950/50 p-4 space-y-3 text-left transition hover:bg-zinc-800/50 group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-medium text-white">{member.name}</div>
+                              <div className="text-sm text-zinc-500">{member.email}</div>
+                            </div>
+                            <ChevronRight size={16} className="text-zinc-600 group-hover:text-zinc-300 transition-colors" />
                           </div>
-                          
+
                           <div className="flex items-center justify-between text-sm pt-2 border-t border-zinc-800/50">
                             <span className="text-zinc-400">Última encuesta:</span>
                             <span className="text-zinc-200">
                               {member.lastSurvey
-                                ? new Date(member.lastSurvey.date).toLocaleDateString()
+                                ? new Date(member.lastSurvey.date + "T00:00:00").toLocaleDateString("es-PE", {
+                                  day: "numeric", month: "short",
+                                })
                                 : "Nunca"}
                             </span>
                           </div>
@@ -171,13 +224,13 @@ export default function ManagerDashboard({
                                   member.lastSurvey.score
                                 )}`}
                               >
-                                {getScoreLabel(member.lastSurvey.score)}
+                                {member.lastSurvey.score}% · {getScoreLabel(member.lastSurvey.score)}
                               </span>
                             ) : (
                               <span className="text-zinc-600 italic">Sin datos</span>
                             )}
                           </div>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </>
@@ -250,7 +303,7 @@ export default function ManagerDashboard({
                           {getStatusLabel(appt.status)}
                         </span>
                       </div>
-                      
+
                       <div className="space-y-2 text-sm text-zinc-400 mb-4">
                         <div className="flex items-center gap-2">
                           <Calendar size={16} />
@@ -289,7 +342,7 @@ export default function ManagerDashboard({
           {activeTab === "user" && (
             <div className="space-y-6">
               <h1 className="text-2xl font-semibold text-white">Perfil</h1>
-              
+
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-sm space-y-4">
                 <div className="flex items-center gap-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-800 text-zinc-400">
@@ -317,29 +370,26 @@ export default function ManagerDashboard({
         <div className="mx-auto flex max-w-lg items-center justify-around px-2 py-3">
           <button
             onClick={() => setActiveTab("home")}
-            className={`flex flex-col items-center gap-1 p-2 transition-colors ${
-              activeTab === "home" ? "text-white" : "text-zinc-500 hover:text-zinc-300"
-            }`}
+            className={`flex flex-col items-center gap-1 p-2 transition-colors ${activeTab === "home" ? "text-white" : "text-zinc-500 hover:text-zinc-300"
+              }`}
           >
             <Home size={24} />
             <span className="text-xs font-medium">Home</span>
           </button>
-          
+
           <button
             onClick={() => setActiveTab("appointments")}
-            className={`flex flex-col items-center gap-1 p-2 transition-colors ${
-              activeTab === "appointments" ? "text-white" : "text-zinc-500 hover:text-zinc-300"
-            }`}
+            className={`flex flex-col items-center gap-1 p-2 transition-colors ${activeTab === "appointments" ? "text-white" : "text-zinc-500 hover:text-zinc-300"
+              }`}
           >
             <Calendar size={24} />
             <span className="text-xs font-medium">Citas</span>
           </button>
-          
+
           <button
             onClick={() => setActiveTab("user")}
-            className={`flex flex-col items-center gap-1 p-2 transition-colors ${
-              activeTab === "user" ? "text-white" : "text-zinc-500 hover:text-zinc-300"
-            }`}
+            className={`flex flex-col items-center gap-1 p-2 transition-colors ${activeTab === "user" ? "text-white" : "text-zinc-500 hover:text-zinc-300"
+              }`}
           >
             <UserIcon size={24} />
             <span className="text-xs font-medium">Usuario</span>
@@ -347,8 +397,8 @@ export default function ManagerDashboard({
         </div>
       </nav>
 
-      <Modal 
-        isOpen={isSurveyOpen} 
+      <Modal
+        isOpen={isSurveyOpen}
         onClose={() => setIsSurveyOpen(false)}
         title="Nueva Encuesta Diaria"
         footer={modalFooter}
@@ -360,6 +410,87 @@ export default function ManagerDashboard({
           }}
           setFooterContent={setModalFooter}
         />
+      </Modal>
+
+      {/* Modal for team member score evolution */}
+      <Modal
+        isOpen={isMemberChartOpen}
+        onClose={() => {
+          setIsMemberChartOpen(false);
+          setSelectedMember(null);
+          setMemberSurveys([]);
+        }}
+        title={selectedMember ? `${selectedMember.name}` : "Evolución"}
+      >
+        <div className="space-y-5">
+          {/* Member info header */}
+          {selectedMember && (
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-900/50 text-indigo-300">
+                <UserIcon size={20} />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-white">{selectedMember.name}</div>
+                <div className="text-xs text-zinc-500">{selectedMember.email}</div>
+              </div>
+              {selectedMember.lastSurvey && (
+                <div className="ml-auto">
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getScoreColor(selectedMember.lastSurvey.score)}`}>
+                    {selectedMember.lastSurvey.score}%
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Chart */}
+          {loadingMemberSurveys ? (
+            <div className="flex items-center justify-center py-12 text-zinc-500">
+              <div className="text-center space-y-2">
+                <div className="animate-spin h-6 w-6 border-2 border-zinc-600 border-t-zinc-300 rounded-full mx-auto" />
+                <p className="text-sm">Cargando datos...</p>
+              </div>
+            </div>
+          ) : memberSurveys.length === 0 ? (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-8 text-center">
+              <TrendingUp size={32} className="mx-auto mb-3 text-zinc-600" />
+              <p className="text-sm text-zinc-400">Este usuario aún no ha realizado encuestas.</p>
+            </div>
+          ) : (
+            <>
+              <SurveyLineChart data={memberSurveys} />
+
+              {/* Survey history list */}
+              <div>
+                <h4 className="text-sm font-medium text-zinc-300 mb-3">Historial ({memberSurveys.length} análisis)</h4>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {[...memberSurveys].reverse().map((survey, idx) => (
+                    <div key={idx} className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-2.5">
+                      <span className="text-sm text-zinc-400">
+                        {new Date(survey.date + "T00:00:00").toLocaleDateString("es-PE", {
+                          day: "numeric", month: "short", year: "numeric",
+                        })}
+                      </span>
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getScoreColor(survey.score)}`}>
+                        {survey.score}% · {getScoreLabel(survey.score)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          <button
+            onClick={() => {
+              setIsMemberChartOpen(false);
+              setSelectedMember(null);
+            }}
+            className="w-full rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-black hover:bg-zinc-200 transition-colors"
+          >
+            Cerrar
+          </button>
+        </div>
       </Modal>
     </div>
   );
