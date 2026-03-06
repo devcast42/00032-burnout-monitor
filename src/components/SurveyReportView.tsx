@@ -1,6 +1,6 @@
 "use client";
 
-import { Download } from "lucide-react";
+import { Download, Share2 } from "lucide-react";
 
 type SurveyReportViewProps = {
     report: string;
@@ -85,7 +85,7 @@ function formatContent(text: string) {
         });
 }
 
-async function downloadReportAsPDF(report: string, score: number, date?: string) {
+async function buildPDFBlob(report: string, score: number, date?: string) {
     const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
@@ -192,9 +192,58 @@ async function downloadReportAsPDF(report: string, score: number, date?: string)
         doc.text(`Página ${i}/${pageCount}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 10, { align: "right" });
     }
 
-    // Download
+    // Return blob + filename
     const dateSlug = date ? new Date(date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
-    doc.save(`informe-burnout-${dateSlug}.pdf`);
+    const filename = `informe-burnout-${dateSlug}.pdf`;
+    const blob = doc.output("blob");
+    return { blob, filename, doc };
+}
+
+async function downloadReportAsPDF(report: string, score: number, date?: string) {
+    const { doc, filename } = await buildPDFBlob(report, score, date);
+    doc.save(filename);
+}
+
+async function shareReportToWhatsApp(report: string, score: number, date?: string) {
+    const { blob, filename } = await buildPDFBlob(report, score, date);
+    const file = new File([blob], filename, { type: "application/pdf" });
+
+    // Mobile: try native share with file attachment
+    if (typeof navigator !== "undefined" && navigator.share && navigator.canShare?.({ files: [file] })) {
+        try {
+            await navigator.share({
+                title: "Informe de Burnout",
+                text: `Informe de Bienestar - Probabilidad de burnout: ${score}%`,
+                files: [file],
+            });
+            return;
+        } catch {
+            // User cancelled or failed, fall through to desktop flow
+        }
+    }
+
+    // Desktop: download PDF automatically, then open WhatsApp Web
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    const scoreLabel = score <= 25 ? "Sin riesgo" : score <= 45 ? "Riesgo bajo" : score <= 65 ? "Riesgo moderado" : score <= 80 ? "Riesgo severo" : "Riesgo muy severo";
+    const text = encodeURIComponent(
+        `📋 *Informe de Bienestar - Burnout Monitor*\n\n` +
+        `🔹 Probabilidad de burnout: *${score}%*\n` +
+        `🔹 Nivel: *${scoreLabel}*\n\n` +
+        `📎 _Adjunta el PDF descargado a este mensaje._`
+    );
+
+    // Small delay so the download starts first
+    setTimeout(() => {
+        window.open(`https://web.whatsapp.com/send?text=${text}`, "_blank");
+    }, 500);
 }
 
 export default function SurveyReportView({ report, score, date, onClose }: SurveyReportViewProps) {
@@ -273,7 +322,14 @@ export default function SurveyReportView({ report, score, date, onClose }: Surve
                     className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
                 >
                     <Download size={16} />
-                    Descargar PDF
+                    PDF
+                </button>
+                <button
+                    onClick={() => shareReportToWhatsApp(report, score, date)}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-[#25D366] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#1fba59] transition-colors"
+                >
+                    <Share2 size={16} />
+                    WhatsApp
                 </button>
                 {onClose && (
                     <button
