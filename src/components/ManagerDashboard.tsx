@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { User } from "@/lib/auth";
 import { TeamMember } from "@/lib/manager";
 import LogoutButton from "./LogoutButton";
-import SurveyForm from "./SurveyForm";
-import SurveyHistory from "./SurveyHistory";
+import BurnoutDynamicForm from "./BurnoutDynamicForm";
+import BurnoutResult from "./BurnoutResult";
+import SurveyReportView from "./SurveyReportView";
 import SurveyLineChart from "./SurveyLineChart";
 import Modal from "./Modal";
-import { Home, Calendar, User as UserIcon, Video, Clock, ChevronRight, TrendingUp } from "lucide-react";
+import { Home, Calendar, User as UserIcon, Video, Clock, ChevronRight, TrendingUp, Activity, FileText } from "lucide-react";
 
 type Tab = "home" | "appointments" | "user";
 
@@ -28,6 +29,18 @@ type MemberSurveyData = {
   score: number;
 };
 
+type Report = {
+  id: string;
+  report: string | null;
+  score: number;
+  createdAt: string;
+  survey: {
+    date: string;
+    score: number;
+    answers: Record<string, number>;
+  };
+};
+
 function getScoreColor(score: number) {
   if (score <= 25) return "bg-green-900/50 text-green-200 border border-green-800";
   if (score <= 45) return "bg-blue-900/50 text-blue-200 border border-blue-800";
@@ -44,6 +57,14 @@ function getScoreLabel(score: number) {
   return "Riesgo muy severo";
 }
 
+function getScoreBadgeColor(score: number) {
+  if (score <= 25) return "bg-green-900/50 text-green-200 border-green-800";
+  if (score <= 45) return "bg-blue-900/50 text-blue-200 border-blue-800";
+  if (score <= 65) return "bg-yellow-900/50 text-yellow-200 border-yellow-800";
+  if (score <= 80) return "bg-orange-900/50 text-orange-200 border-orange-800";
+  return "bg-red-900/50 text-red-200 border-red-800";
+}
+
 export default function ManagerDashboard({
   user,
   team,
@@ -52,12 +73,25 @@ export default function ManagerDashboard({
   team: TeamMember[];
 }) {
   const router = useRouter();
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [isSurveyOpen, setIsSurveyOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loadingAppointments, setLoadingAppointments] = useState(false);
-  const [modalFooter, setModalFooter] = useState<React.ReactNode>(null);
+
+  // Own survey state (same as user dashboard)
+  const [predictionResult, setPredictionResult] = useState<{ prediction: number; burnout_probability: number; status: string; report?: string | null; reportId?: string | null } | null>(null);
+  const [isResultOpen, setIsResultOpen] = useState(false);
+  const [isAnalyzeOpen, setIsAnalyzeOpen] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+
+  // Reports state
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [isReportViewOpen, setIsReportViewOpen] = useState(false);
+
+  // Latest report after analysis
+  const [latestReport, setLatestReport] = useState<{ report: string; score: number; reportId?: string } | null>(null);
+  const [isLatestReportOpen, setIsLatestReportOpen] = useState(false);
 
   // Member chart modal state
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
@@ -65,14 +99,27 @@ export default function ManagerDashboard({
   const [loadingMemberSurveys, setLoadingMemberSurveys] = useState(false);
   const [isMemberChartOpen, setIsMemberChartOpen] = useState(false);
 
+  const fetchReports = useCallback(async (signal?: AbortSignal) => {
+    setLoadingReports(true);
+    try {
+      const res = await fetch("/api/surveys/reports", { signal });
+      if (res.ok) {
+        const data = await res.json();
+        setReports(data.reports || []);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingReports(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeTab === "appointments") {
       setLoadingAppointments(true);
       fetch("/api/appointments")
         .then((res) => {
-          if (res.status === 401) {
-            return null;
-          }
+          if (res.status === 401) return null;
           return res.json();
         })
         .then((data) => {
@@ -81,6 +128,13 @@ export default function ManagerDashboard({
         .finally(() => setLoadingAppointments(false));
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "home") return;
+    const controller = new AbortController();
+    fetchReports(controller.signal);
+    return () => controller.abort();
+  }, [activeTab, fetchReports]);
 
   const handleMemberClick = useCallback(async (member: TeamMember) => {
     setSelectedMember(member);
@@ -121,6 +175,12 @@ export default function ManagerDashboard({
     }
   };
 
+  // Chart data from own reports
+  const chartData = reports.map((r) => ({
+    date: r.survey.date,
+    score: r.score,
+  }));
+
   return (
     <div className="flex min-h-screen flex-col bg-zinc-950 pb-20">
       <div className="flex-1 px-6 py-8">
@@ -129,6 +189,7 @@ export default function ManagerDashboard({
             <div className="space-y-8">
               <h1 className="text-2xl font-semibold text-white">Hola, {user.name}</h1>
 
+              {/* ═══ Team section ═══ */}
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-8 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-semibold text-white">Mi Equipo</h2>
@@ -237,23 +298,80 @@ export default function ManagerDashboard({
                 )}
               </div>
 
-              <div className="grid gap-8 md:grid-cols-2">
-                <div>
-                  <h2 className="mb-4 text-lg font-semibold text-white">Encuesta Diaria</h2>
-                  <button
-                    onClick={() => setIsSurveyOpen(true)}
-                    className="w-full rounded-xl border border-zinc-800 bg-zinc-900 p-8 text-center hover:bg-zinc-800 transition-colors group"
-                  >
-                    <div className="mb-2 text-3xl text-zinc-500 group-hover:text-white transition-colors">+</div>
-                    <div className="text-sm font-medium text-zinc-400 group-hover:text-white transition-colors">
-                      Realizar nueva encuesta
-                    </div>
-                  </button>
-                </div>
-                <div>
-                  <h2 className="mb-4 text-lg font-semibold text-white">Historial</h2>
-                  <SurveyHistory refreshKey={refreshKey} />
-                </div>
+              {/* ═══ Own analysis section (same as user dashboard) ═══ */}
+              <div>
+                <h2 className="mb-4 text-lg font-semibold text-white">Análisis de Burnout</h2>
+                {analyzeError && (
+                  <div className="mb-4 rounded-lg bg-red-900/50 p-3 text-sm text-red-200 border border-red-800">
+                    {analyzeError}
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    setAnalyzeError(null);
+                    setIsAnalyzeOpen(true);
+                  }}
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900 p-8 text-center hover:bg-zinc-800 transition-colors group"
+                >
+                  <div className="mb-2 text-zinc-500 group-hover:text-blue-400 transition-colors">
+                    <Activity className="mx-auto" size={36} />
+                  </div>
+                  <div className="text-sm font-medium text-zinc-400 group-hover:text-white transition-colors">
+                    Analizar
+                  </div>
+                </button>
+              </div>
+
+              {/* Own Line Chart */}
+              <SurveyLineChart data={chartData} />
+
+              {/* Own Reports list */}
+              <div>
+                <h2 className="mb-4 text-lg font-semibold text-white">Historial de Análisis</h2>
+                {loadingReports ? (
+                  <div className="text-center py-6 text-zinc-500">Cargando informes...</div>
+                ) : reports.length === 0 ? (
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 text-center text-zinc-500">
+                    <p className="text-sm">Completa un análisis para ver tu historial aquí.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {reports.map((report) => (
+                      <button
+                        key={report.id}
+                        onClick={() => {
+                          setSelectedReport(report);
+                          setIsReportViewOpen(true);
+                        }}
+                        className="w-full rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-left transition hover:bg-zinc-800/50 group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 group-hover:bg-indigo-900/50 group-hover:text-indigo-300 transition-colors">
+                              <FileText size={20} />
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-zinc-200">
+                                {new Date(report.survey.date + "T00:00:00").toLocaleDateString("es-PE", {
+                                  weekday: "short",
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </div>
+                              <div className="text-xs text-zinc-500">
+                                Puntuación: {report.score}%
+                              </div>
+                            </div>
+                          </div>
+                          <div className={`rounded-full px-2.5 py-1 text-xs font-medium border ${getScoreBadgeColor(report.score)}`}>
+                            {getScoreLabel(report.score)}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -397,22 +515,123 @@ export default function ManagerDashboard({
         </div>
       </nav>
 
-      <Modal
-        isOpen={isSurveyOpen}
-        onClose={() => setIsSurveyOpen(false)}
-        title="Nueva Encuesta Diaria"
-        footer={modalFooter}
-      >
-        <SurveyForm
-          onSuccess={() => {
-            setRefreshKey((k) => k + 1);
-            setIsSurveyOpen(false);
+      {/* ═══ Modals ═══ */}
+
+      {/* Analysis form modal */}
+      <Modal isOpen={isAnalyzeOpen} onClose={() => setIsAnalyzeOpen(false)} title="Análisis de Burnout">
+        <BurnoutDynamicForm
+          onResult={(result) => {
+            setIsAnalyzeOpen(false);
+            setPredictionResult(result);
+            setIsResultOpen(true);
+
+            if (result.report) {
+              setLatestReport({
+                report: result.report,
+                score: result.burnout_probability ? Math.round(result.burnout_probability * 100) : 0,
+                reportId: result.reportId || undefined,
+              });
+            }
           }}
-          setFooterContent={setModalFooter}
+          onError={(msg) => {
+            setIsAnalyzeOpen(false);
+            setAnalyzeError(msg);
+          }}
         />
       </Modal>
 
-      {/* Modal for team member score evolution */}
+      {/* Prediction result modal */}
+      <Modal
+        isOpen={isResultOpen}
+        onClose={() => {
+          setIsResultOpen(false);
+          if (predictionResult?.report) {
+            setLatestReport({
+              report: predictionResult.report,
+              score: predictionResult.burnout_probability ? Math.round(predictionResult.burnout_probability * 100) : 0,
+              reportId: predictionResult.reportId || undefined,
+            });
+            setIsLatestReportOpen(true);
+          } else {
+            fetchReports();
+          }
+        }}
+        title="Resultados"
+      >
+        {predictionResult && (
+          <BurnoutResult
+            prediction={predictionResult.prediction}
+            burnoutProbability={predictionResult.burnout_probability}
+            status={predictionResult.status}
+          />
+        )}
+      </Modal>
+
+      {/* Latest report modal */}
+      <Modal
+        isOpen={isLatestReportOpen}
+        onClose={() => {
+          setIsLatestReportOpen(false);
+          fetchReports();
+        }}
+        title="Informe Generado"
+      >
+        {latestReport && (
+          <SurveyReportView
+            report={latestReport.report}
+            score={latestReport.score}
+            reportId={latestReport.reportId}
+            onClose={() => {
+              setIsLatestReportOpen(false);
+              fetchReports();
+            }}
+          />
+        )}
+      </Modal>
+
+      {/* Selected report from history */}
+      <Modal
+        isOpen={isReportViewOpen}
+        onClose={() => {
+          setIsReportViewOpen(false);
+          setSelectedReport(null);
+        }}
+        title="Detalle del Informe"
+      >
+        {selectedReport && selectedReport.report ? (
+          <SurveyReportView
+            report={selectedReport.report}
+            score={selectedReport.score}
+            date={selectedReport.createdAt}
+            reportId={selectedReport.id}
+            onClose={() => {
+              setIsReportViewOpen(false);
+              setSelectedReport(null);
+            }}
+          />
+        ) : selectedReport ? (
+          <div className="space-y-4 text-center">
+            <div className="text-4xl">⏳</div>
+            <p className="text-sm text-zinc-400">
+              El informe de IA no pudo generarse para este análisis.
+            </p>
+            <p className="text-xs text-zinc-500">
+              Puntuación: {selectedReport.score}% · {selectedReport.survey.date}
+            </p>
+            <button
+              onClick={() => {
+                setIsReportViewOpen(false);
+                setSelectedReport(null);
+              }}
+              className="w-full rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-black hover:bg-zinc-200 transition-colors"
+            >
+              Cerrar
+            </button>
+          </div>
+        ) : null}
+      </Modal>
+
+      {/* Team member score evolution modal */}
       <Modal
         isOpen={isMemberChartOpen}
         onClose={() => {
@@ -423,7 +642,6 @@ export default function ManagerDashboard({
         title={selectedMember ? `${selectedMember.name}` : "Evolución"}
       >
         <div className="space-y-5">
-          {/* Member info header */}
           {selectedMember && (
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-900/50 text-indigo-300">
@@ -443,7 +661,6 @@ export default function ManagerDashboard({
             </div>
           )}
 
-          {/* Chart */}
           {loadingMemberSurveys ? (
             <div className="flex items-center justify-center py-12 text-zinc-500">
               <div className="text-center space-y-2">
@@ -460,7 +677,6 @@ export default function ManagerDashboard({
             <>
               <SurveyLineChart data={memberSurveys} />
 
-              {/* Survey history list */}
               <div>
                 <h4 className="text-sm font-medium text-zinc-300 mb-3">Historial ({memberSurveys.length} análisis)</h4>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
