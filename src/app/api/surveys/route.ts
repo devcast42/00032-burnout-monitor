@@ -13,9 +13,12 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  if (!body || typeof body.score !== "number" || (!Array.isArray(body.answers) && (typeof body.answers !== "object" || body.answers === null))) {
+  if (!body || (!Array.isArray(body.answers) && (typeof body.answers !== "object" || body.answers === null))) {
     return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
   }
+
+  // Coerce score to a number (handles null/undefined from prediction API)
+  const score = typeof body.score === "number" && !isNaN(body.score) ? body.score : 0;
 
   // Verificar si ya completó la encuesta hoy
   const today = new Date().toISOString().split("T")[0];
@@ -34,7 +37,7 @@ export async function POST(request: Request) {
     data: {
       userId: user.id,
       date: today,
-      score: body.score,
+      score: score,
       answers: body.answers,
     },
   });
@@ -44,12 +47,12 @@ export async function POST(request: Request) {
   let reportId: string | null = null;
   try {
     const prediction = body.prediction || null;
-    reportContent = await generateBurnoutReport(body.score, body.answers as Record<string, number>, prediction);
+    reportContent = await generateBurnoutReport(score, body.answers as Record<string, number>, prediction);
     const surveyReport = await prisma.surveyReport.create({
       data: {
         surveyId: survey.id,
         report: reportContent,
-        score: body.score,
+        score: score,
       },
     });
     reportId = surveyReport.id;
@@ -60,7 +63,7 @@ export async function POST(request: Request) {
   // ── Auto-agendar cita si score > 50 ──
   let autoAppointment = null;
 
-  if (body.score > BURNOUT_THRESHOLD) {
+  if (score > BURNOUT_THRESHOLD) {
     try {
       // Find first available user with doctor role
       const doctorUser = await prisma.user.findFirst({
@@ -91,7 +94,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     success: true,
     id: survey.id,
-    score: body.score,
+    score,
     report: reportContent,
     reportId,
     autoAppointment,

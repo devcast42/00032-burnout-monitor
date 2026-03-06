@@ -2,8 +2,9 @@
 
 type PredictionResult = {
     prediction: number;
-    burnout_probability: number;
+    burnout_probability_percent: number;
     status: string;
+    top_3_influential_factors?: string[];
 };
 
 export default function BurnoutResult({
@@ -15,7 +16,7 @@ export default function BurnoutResult({
     onClose: () => void;
     onScheduleAppointment?: () => void;
 }) {
-    const probability = (result.burnout_probability * 100).toFixed(1);
+    const probability = result.burnout_probability_percent.toFixed(1);
     const isBurnout = result.prediction === 1;
 
     return (
@@ -24,8 +25,8 @@ export default function BurnoutResult({
             <div className="flex justify-center">
                 <div
                     className={`rounded-full px-6 py-3 text-lg font-bold ${isBurnout
-                            ? "bg-red-900/50 text-red-200 border border-red-800"
-                            : "bg-green-900/50 text-green-200 border border-green-800"
+                        ? "bg-red-900/50 text-red-200 border border-red-800"
+                        : "bg-green-900/50 text-green-200 border border-green-800"
                         }`}
                 >
                     {result.status}
@@ -46,8 +47,8 @@ export default function BurnoutResult({
                 <div className="mt-4 h-3 w-full overflow-hidden rounded-full bg-zinc-800">
                     <div
                         className={`h-full rounded-full transition-all duration-700 ${isBurnout
-                                ? "bg-gradient-to-r from-orange-500 to-red-500"
-                                : "bg-gradient-to-r from-green-500 to-emerald-500"
+                            ? "bg-gradient-to-r from-orange-500 to-red-500"
+                            : "bg-gradient-to-r from-green-500 to-emerald-500"
                             }`}
                         style={{ width: `${probability}%` }}
                     />
@@ -61,6 +62,28 @@ export default function BurnoutResult({
                     {isBurnout ? "1 — Tiene Burnout" : "0 — No tiene Burnout"}
                 </p>
             </div>
+
+            {/* Top 3 influential factors */}
+            {result.top_3_influential_factors && result.top_3_influential_factors.length > 0 && (
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5 space-y-3">
+                    <p className="text-sm font-medium text-zinc-400">Factores más influyentes</p>
+                    <div className="space-y-2">
+                        {result.top_3_influential_factors.map((factor, idx) => (
+                            <div
+                                key={idx}
+                                className="flex items-center gap-3 rounded-lg bg-zinc-800/60 px-4 py-2.5"
+                            >
+                                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-zinc-700 text-xs font-bold text-zinc-300">
+                                    {idx + 1}
+                                </span>
+                                <span className="text-sm text-zinc-200">
+                                    {factor.replace(/_/g, " ")}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {isBurnout && onScheduleAppointment && (
                 <button

@@ -9,8 +9,9 @@ import {
 
 type PredictionResult = {
     prediction: number;
-    burnout_probability: number;
+    burnout_probability_percent: number;
     status: string;
+    top_3_influential_factors: string[];
     report?: string | null;
     reportId?: string | null;
 };
@@ -64,8 +65,8 @@ export default function BurnoutDynamicForm({
             if (!res.ok) throw new Error("Error en la API");
             const predictionData = await res.json();
 
-            // 2. Use burnout_probability as the score (0-100%)
-            const score = Math.round(predictionData.burnout_probability * 100);
+            // 2. Use burnout_probability_percent as the score (already 0-100%)
+            const score = Math.round(predictionData.burnout_probability_percent ?? 0);
 
             // 3. Save survey + generate Gemini report via our API
             let report: string | null = null;
@@ -79,7 +80,7 @@ export default function BurnoutDynamicForm({
                         answers: dynamicAnswers,
                         prediction: {
                             prediction: predictionData.prediction,
-                            burnout_probability: predictionData.burnout_probability,
+                            burnout_probability_percent: predictionData.burnout_probability_percent,
                         },
                     }),
                 });

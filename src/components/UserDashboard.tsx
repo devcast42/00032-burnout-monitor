@@ -47,7 +47,7 @@ export default function UserDashboard({
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loadingAppointments, setLoadingAppointments] = useState(false);
-  const [predictionResult, setPredictionResult] = useState<{ prediction: number; burnout_probability: number; status: string; report?: string | null; reportId?: string | null } | null>(null);
+  const [predictionResult, setPredictionResult] = useState<{ prediction: number; burnout_probability_percent: number; status: string; top_3_influential_factors?: string[]; report?: string | null; reportId?: string | null } | null>(null);
   const [isResultOpen, setIsResultOpen] = useState(false);
   const [isAnalyzeOpen, setIsAnalyzeOpen] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
@@ -425,7 +425,7 @@ export default function UserDashboard({
             if (result.report) {
               setLatestReport({
                 report: result.report,
-                score: result.burnout_probability ? Math.round(result.burnout_probability * 100) : 0,
+                score: result.burnout_probability_percent ? Math.round(result.burnout_probability_percent) : 0,
                 reportId: result.reportId || undefined,
               });
             }
@@ -445,7 +445,7 @@ export default function UserDashboard({
           if (predictionResult?.report) {
             setLatestReport({
               report: predictionResult.report,
-              score: predictionResult.burnout_probability ? Math.round(predictionResult.burnout_probability * 100) : 0,
+              score: predictionResult.burnout_probability_percent ? Math.round(predictionResult.burnout_probability_percent) : 0,
               reportId: predictionResult.reportId || undefined,
             });
             setIsLatestReportOpen(true);
@@ -462,7 +462,7 @@ export default function UserDashboard({
               if (predictionResult?.report) {
                 setLatestReport({
                   report: predictionResult.report,
-                  score: predictionResult.burnout_probability ? Math.round(predictionResult.burnout_probability * 75) : 0,
+                  score: predictionResult.burnout_probability_percent ? Math.round(predictionResult.burnout_probability_percent) : 0,
                 });
                 setIsLatestReportOpen(true);
               }

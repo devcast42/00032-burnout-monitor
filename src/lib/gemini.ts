@@ -54,12 +54,12 @@ async function callGeminiWithRetry(prompt: string, maxRetries = 3): Promise<stri
 export async function generateBurnoutReport(
     score: number,
     answers: Record<string, number>,
-    prediction: { prediction: number; burnout_probability: number } | null,
+    prediction: { prediction: number; burnout_probability_percent: number } | null,
 ): Promise<string> {
     const answersText = mapAnswersToText(answers);
     const riskLevel = getScoreLabel(score);
     const predictionText = prediction
-        ? `Predicción de IA: ${prediction.prediction === 1 ? "Tiene Burnout" : "No tiene Burnout"} (Probabilidad: ${(prediction.burnout_probability * 100).toFixed(1)}%)`
+        ? `Predicción de IA: ${prediction.prediction === 1 ? "Tiene Burnout" : "No tiene Burnout"} (Probabilidad: ${prediction.burnout_probability_percent.toFixed(1)}%)`
         : "Sin predicción disponible";
 
     const prompt = `Eres un experto en salud mental ocupacional y bienestar laboral. Genera un informe profesional y empático en español basado en los resultados de una encuesta de burnout.
