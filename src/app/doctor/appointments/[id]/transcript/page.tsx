@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Brain, Stethoscope } from "lucide-react";
+import { ArrowLeft, Brain, Stethoscope, Download, Share2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 type Recording = {
@@ -113,11 +113,51 @@ export default function TranscriptPage({ params }: PageProps) {
                 {/* AI Diagnosis Section */}
                 {recording.diagnosis && (
                   <div className="mb-6 rounded-xl border border-blue-900/40 bg-blue-950/20 p-5 shadow-sm">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Brain className="text-blue-400" size={20} />
-                      <h2 className="text-base font-semibold text-blue-100">
-                        Diagnóstico Asistido por IA
-                      </h2>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Brain className="text-blue-400" size={20} />
+                        <h2 className="text-base font-semibold text-blue-100">
+                          Diagnóstico Asistido por IA
+                        </h2>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async () => {
+                            // Use the server-side API for a consistently styled PDF
+                            const baseUrl = `${window.location.protocol}//${window.location.host}`;
+                            const pdfUrl = `${baseUrl}/api/appointments/${id}/transcript/pdf`;
+
+                            // Trigger download
+                            const link = document.createElement("a");
+                            link.href = pdfUrl;
+                            link.download = `diagnostico-${id}.pdf`;
+                            link.target = "_blank";
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }}
+                          className="flex items-center gap-2 rounded-lg border border-blue-800/50 bg-blue-900/30 px-3 py-1.5 text-xs font-medium text-blue-200 hover:bg-blue-900/50 transition-colors"
+                        >
+                          <Download size={14} />
+                          PDF
+                        </button>
+                        <button
+                          onClick={() => {
+                            const baseUrl = `${window.location.protocol}//${window.location.host}`;
+                            const pdfUrl = `${baseUrl}/api/appointments/${id}/transcript/pdf`;
+                            const text = encodeURIComponent(
+                              `📋 *Diagnóstico Clínico - Burnout Monitor*\n\n` +
+                              `👤 Paciente: *${appointment?.patientName}*\n` +
+                              `📎 Puedes ver el diagnóstico completo aquí:\n${pdfUrl}`
+                            );
+                            window.open(`https://wa.me/?text=${text}`, "_blank");
+                          }}
+                          className="flex items-center gap-2 rounded-lg bg-[#25D366] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#1fba59] transition-colors"
+                        >
+                          <Share2 size={14} />
+                          WhatsApp
+                        </button>
+                      </div>
                     </div>
                     <div className="prose prose-sm prose-invert max-w-none prose-headings:text-blue-200 prose-p:text-zinc-300 prose-li:text-zinc-300">
                       <ReactMarkdown>{recording.diagnosis}</ReactMarkdown>
