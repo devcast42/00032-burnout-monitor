@@ -11,6 +11,7 @@ export async function GET(_request: Request, context: RouteContext) {
         where: { id },
         include: {
             doctor: { select: { name: true, specialty: true, email: true } },
+            patient: { select: { id: true } },
             recording: true,
         },
     });
@@ -19,7 +20,12 @@ export async function GET(_request: Request, context: RouteContext) {
         return NextResponse.json({ error: "Cita no encontrada" }, { status: 404 });
     }
 
-    return NextResponse.json({ appointment });
+    const formattedAppointment = {
+        ...appointment,
+        patientId: appointment.patient?.id || null,
+    };
+
+    return NextResponse.json({ appointment: formattedAppointment });
 }
 
 export async function PATCH(request: Request, context: RouteContext) {

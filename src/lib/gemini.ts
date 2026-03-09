@@ -84,9 +84,36 @@ Lista los factores de riesgo detectados según las respuestas (máximo 4 puntos)
 Acciones específicas y prácticas que el paciente puede tomar (máximo 5 recomendaciones).
 
 ## Plan de Acción Inmediato
-3 pasos concretos para las próximas 2 semanas.
+3 pasos concretos para las próximas 2 semanas.`;
 
-IMPORTANTE: Sé empático, profesional y constructivo. No uses lenguaje alarmista. Cada sección debe ser concisa pero útil.`;
+    return callGeminiWithRetry(prompt);
+}
+
+export async function generateDiagnosisFromTranscript(transcript: string): Promise<string> {
+    const prompt = `Eres un experto en salud mental y psicología clínica. A continuación, te proporciono la transcripción completa de una sesión de videollamada entre un profesional de la salud y su paciente.
+
+TRANSCRIPCIÓN:
+${transcript}
+
+Instrucciones:
+1. Analiza el tono, las respuestas, y la información compartida durante la sesión.
+2. Identifica si hay indicios relevantes de burnout, estrés, ansiedad u otros factores psicológicos a destacar.
+3. Extrae los puntos clave y formula un "Resumen Clínico / Diagnóstico Asistido" que sea de utilidad para el profesional.
+4. Redacta tu respuesta en formato Markdown, estructurada en las siguientes secciones (usa los encabezados exactos):
+
+## Resumen de la Sesión
+Un párrafo que sintetice el tema principal de la conversación y el estado general percibido del paciente.
+
+## Observaciones Clínicas
+Puntos relevantes sobre su bienestar emocional, estrés laboral o físico, mencionados en la sesión. (Viñetas breves).
+
+## Posibles Factores de Riesgo
+Cualquier situación descrita que pueda presentar un riesgo moderado o alto para la salud afectiva / burnout del paciente. Si no hay, indica "No se detectaron factores de riesgo críticos evidentes."
+
+## Recomendaciones a Considerar
+1-3 sugerencias de intervención o seguimiento para la próxima sesión.
+
+IMPORTANTE: Actúa solo como un asistente. Genera la respuesta con lenguaje profesional de la salud. Si la transcripción no contiene suficiente contenido clínico, indícalo brevemente.`;
 
     return callGeminiWithRetry(prompt);
 }

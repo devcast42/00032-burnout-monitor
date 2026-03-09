@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { transcribeAudio } from "@/lib/transcribe";
+import { generateDiagnosisFromTranscript } from "@/lib/gemini";
 import fs from "fs";
 import path from "path";
 
@@ -60,18 +61,29 @@ export async function POST(request: Request, context: RouteContext) {
         });
     }
 
-    // Attempt transcription (async, non-blocking for user)
+    // Attempt transcription and AI diagnosis (async, non-blocking for user)
     let transcript: string | null = null;
+    let diagnosis: string | null = null;
     try {
         if (process.env.GEMINI_API_KEY) {
             transcript = await transcribeAudio(filePath);
+
+            // Wait slightly before the second API call if needed, or execute sequentially
+            if (transcript) {
+                diagnosis = await generateDiagnosisFromTranscript(transcript);
+            }
+
             await prisma.recording.update({
                 where: { id: recording.id },
-                data: { transcript, transcribedAt: new Date() },
+                data: {
+                    transcript,
+                    diagnosis,
+                    transcribedAt: new Date()
+                },
             });
         }
     } catch (err) {
-        console.error("Error en transcripción:", err);
+        console.error("Error en transcripción o diagnóstico de IA:", err);
     }
 
     // Mark appointment as completed

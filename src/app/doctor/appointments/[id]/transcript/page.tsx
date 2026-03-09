@@ -2,12 +2,14 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Brain, Stethoscope } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 type Recording = {
   id: string;
   audioUrl: string | null;
   transcript: string | null;
+  diagnosis: string | null;
   transcribedAt: string | null;
 };
 
@@ -108,8 +110,25 @@ export default function TranscriptPage({ params }: PageProps) {
                   </div>
                 )}
 
+                {/* AI Diagnosis Section */}
+                {recording.diagnosis && (
+                  <div className="mb-6 rounded-xl border border-blue-900/40 bg-blue-950/20 p-5 shadow-sm">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Brain className="text-blue-400" size={20} />
+                      <h2 className="text-base font-semibold text-blue-100">
+                        Diagnóstico Asistido por IA
+                      </h2>
+                    </div>
+                    <div className="prose prose-sm prose-invert max-w-none prose-headings:text-blue-200 prose-p:text-zinc-300 prose-li:text-zinc-300">
+                      <ReactMarkdown>{recording.diagnosis}</ReactMarkdown>
+                    </div>
+                  </div>
+                )}
+
+                {/* Transcript Section */}
                 <div>
-                  <h2 className="mb-2 text-sm font-semibold text-zinc-300">
+                  <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-300">
+                    <Stethoscope size={16} />
                     Transcripción
                   </h2>
                   {recording.transcript ? (
