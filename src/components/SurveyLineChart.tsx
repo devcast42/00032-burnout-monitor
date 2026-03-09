@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState, useMemo } from "react";
 
 type DataPoint = {
     date: string;
@@ -11,6 +11,8 @@ type SurveyLineChartProps = {
     data: DataPoint[];
 };
 
+type FilterPreset = "7d" | "30d" | "90d" | "all" | "custom";
+
 function getScoreColor(score: number): string {
     if (score <= 25) return "#22c55e";
     if (score <= 45) return "#3b82f6";
@@ -19,14 +21,43 @@ function getScoreColor(score: number): string {
     return "#ef4444";
 }
 
+function subtractDays(days: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    return d.toISOString().split("T")[0];
+}
+
 export default function SurveyLineChart({ data }: SurveyLineChartProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
+    const [preset, setPreset] = useState<FilterPreset>("all");
+    const [customFrom, setCustomFrom] = useState("");
+    const [customTo, setCustomTo] = useState("");
+
+    // Filter data based on selected preset or custom range
+    const filteredData = useMemo(() => {
+        if (preset === "all") return data;
+
+        let fromDate: string;
+        let toDate: string = new Date().toISOString().split("T")[0];
+
+        if (preset === "custom") {
+            if (!customFrom && !customTo) return data;
+            fromDate = customFrom || "1900-01-01";
+            toDate = customTo || "2999-12-31";
+        } else {
+            const days = preset === "7d" ? 7 : preset === "30d" ? 30 : 90;
+            fromDate = subtractDays(days);
+        }
+
+        return data.filter((d) => d.date >= fromDate && d.date <= toDate);
+    }, [data, preset, customFrom, customTo]);
+
     useEffect(() => {
         const canvas = canvasRef.current;
         const container = containerRef.current;
-        if (!canvas || !container || data.length === 0) return;
+        if (!canvas || !container || filteredData.length === 0) return;
 
         const dpr = window.devicePixelRatio || 1;
         const rect = container.getBoundingClientRect();
@@ -55,7 +86,7 @@ export default function SurveyLineChart({ data }: SurveyLineChartProps) {
         ctx.clearRect(0, 0, width, height);
 
         // Sort data by date
-        const sorted = [...data].sort((a, b) => a.date.localeCompare(b.date));
+        const sorted = [...filteredData].sort((a, b) => a.date.localeCompare(b.date));
         const maxScore = 100;
 
         // Risk zone backgrounds
@@ -175,7 +206,7 @@ export default function SurveyLineChart({ data }: SurveyLineChartProps) {
             const lastLabel = lastD.toLocaleDateString("es-PE", { day: "2-digit", month: "short" });
             ctx.fillText(lastLabel, lastP.x, padTop + chartH + 8);
         }
-    }, [data]);
+    }, [filteredData]);
 
     if (data.length === 0) {
         return (
@@ -184,6 +215,14 @@ export default function SurveyLineChart({ data }: SurveyLineChartProps) {
             </div>
         );
     }
+
+    const presetButtons: { key: FilterPreset; label: string }[] = [
+        { key: "7d", label: "7 días" },
+        { key: "30d", label: "30 días" },
+        { key: "90d", label: "90 días" },
+        { key: "all", label: "Todo" },
+        { key: "custom", label: "Rango" },
+    ];
 
     return (
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
@@ -204,9 +243,54 @@ export default function SurveyLineChart({ data }: SurveyLineChartProps) {
                     </div>
                 </div>
             </div>
-            <div ref={containerRef} className="w-full">
-                <canvas ref={canvasRef} className="w-full" />
+
+            {/* Date Filter */}
+            <div className="mb-4 space-y-2">
+                <div className="flex flex-wrap gap-1.5">
+                    {presetButtons.map((btn) => (
+                        <button
+                            key={btn.key}
+                            onClick={() => setPreset(btn.key)}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${preset === btn.key
+                                    ? "bg-indigo-600 text-white"
+                                    : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
+                                }`}
+                        >
+                            {btn.label}
+                        </button>
+                    ))}
+                </div>
+
+                {preset === "custom" && (
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="date"
+                            value={customFrom}
+                            onChange={(e) => setCustomFrom(e.target.value)}
+                            className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
+                            placeholder="Desde"
+                        />
+                        <span className="text-xs text-zinc-500">—</span>
+                        <input
+                            type="date"
+                            value={customTo}
+                            onChange={(e) => setCustomTo(e.target.value)}
+                            className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
+                            placeholder="Hasta"
+                        />
+                    </div>
+                )}
             </div>
+
+            {filteredData.length === 0 ? (
+                <div className="flex items-center justify-center py-10">
+                    <p className="text-sm text-zinc-500">No hay datos en el rango seleccionado.</p>
+                </div>
+            ) : (
+                <div ref={containerRef} className="w-full">
+                    <canvas ref={canvasRef} className="w-full" />
+                </div>
+            )}
         </div>
     );
 }

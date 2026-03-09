@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { User } from "@/lib/auth";
 import { TeamMember } from "@/lib/manager";
@@ -10,7 +10,7 @@ import BurnoutResult from "./BurnoutResult";
 import SurveyReportView from "./SurveyReportView";
 import SurveyLineChart from "./SurveyLineChart";
 import Modal from "./Modal";
-import { Home, Calendar, User as UserIcon, Video, Clock, ChevronRight, TrendingUp, Activity, FileText } from "lucide-react";
+import { Home, Calendar, User as UserIcon, Video, Clock, ChevronRight, TrendingUp, Activity, FileText, Search } from "lucide-react";
 
 type Tab = "home" | "appointments" | "user";
 
@@ -78,7 +78,7 @@ export default function ManagerDashboard({
   const [loadingAppointments, setLoadingAppointments] = useState(false);
 
   // Own survey state (same as user dashboard)
-  const [predictionResult, setPredictionResult] = useState<{ prediction: number; burnout_probability: number; status: string; report?: string | null; reportId?: string | null } | null>(null);
+  const [predictionResult, setPredictionResult] = useState<{ prediction: number; burnout_probability_percent: number; status: string; top_3_influential_factors?: string[]; report?: string | null; reportId?: string | null } | null>(null);
   const [isResultOpen, setIsResultOpen] = useState(false);
   const [isAnalyzeOpen, setIsAnalyzeOpen] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
@@ -98,6 +98,23 @@ export default function ManagerDashboard({
   const [memberSurveys, setMemberSurveys] = useState<MemberSurveyData[]>([]);
   const [loadingMemberSurveys, setLoadingMemberSurveys] = useState(false);
   const [isMemberChartOpen, setIsMemberChartOpen] = useState(false);
+
+  // Search filter for team
+  const [teamSearchQuery, setTeamSearchQuery] = useState("");
+
+  // History filtering and pagination state (Manager's own reports)
+  type FilterPreset = "7d" | "30d" | "90d" | "all" | "custom";
+  const [historyPreset, setHistoryPreset] = useState<FilterPreset>("all");
+  const [historyCustomFrom, setHistoryCustomFrom] = useState("");
+  const [historyCustomTo, setHistoryCustomTo] = useState("");
+  const [historyPage, setHistoryPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
+
+  // History filtering and pagination state (Team Member's reports)
+  const [memberHistoryPreset, setMemberHistoryPreset] = useState<FilterPreset>("all");
+  const [memberHistoryCustomFrom, setMemberHistoryCustomFrom] = useState("");
+  const [memberHistoryCustomTo, setMemberHistoryCustomTo] = useState("");
+  const [memberHistoryPage, setMemberHistoryPage] = useState(1);
 
   const fetchReports = useCallback(async (signal?: AbortSignal) => {
     setLoadingReports(true);
@@ -141,6 +158,10 @@ export default function ManagerDashboard({
     setIsMemberChartOpen(true);
     setLoadingMemberSurveys(true);
     setMemberSurveys([]);
+    setMemberHistoryPreset("all");
+    setMemberHistoryCustomFrom("");
+    setMemberHistoryCustomTo("");
+    setMemberHistoryPage(1);
 
     try {
       const res = await fetch(`/api/manager/team/${member.id}/surveys`);
@@ -154,6 +175,82 @@ export default function ManagerDashboard({
       setLoadingMemberSurveys(false);
     }
   }, []);
+
+  const subtractDays = (days: number): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    return d.toISOString().split("T")[0];
+  };
+
+  const presetButtons: { key: FilterPreset; label: string }[] = [
+    { key: "7d", label: "7 días" },
+    { key: "30d", label: "30 días" },
+    { key: "90d", label: "90 días" },
+    { key: "all", label: "Todo" },
+    { key: "custom", label: "Rango" },
+  ];
+
+  // --- Search team members ---
+  const filteredTeam = useMemo(() => {
+    if (!teamSearchQuery.trim()) return team;
+    const query = teamSearchQuery.toLowerCase();
+    return team.filter((m) =>
+      m.name.toLowerCase().includes(query) ||
+      m.email.toLowerCase().includes(query)
+    );
+  }, [team, teamSearchQuery]);
+
+  // --- Manager's own history filtering and pagination ---
+  const filteredReports = useMemo(() => {
+    if (historyPreset === "all") return reports;
+
+    let fromDate: string;
+    let toDate: string = new Date().toISOString().split("T")[0];
+
+    if (historyPreset === "custom") {
+      if (!historyCustomFrom && !historyCustomTo) return reports;
+      fromDate = historyCustomFrom || "1900-01-01";
+      toDate = historyCustomTo || "2999-12-31";
+    } else {
+      const days = historyPreset === "7d" ? 7 : historyPreset === "30d" ? 30 : 90;
+      fromDate = subtractDays(days);
+    }
+
+    return reports.filter((r) => r.survey.date >= fromDate && r.survey.date <= toDate);
+  }, [reports, historyPreset, historyCustomFrom, historyCustomTo]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredReports.length / ITEMS_PER_PAGE));
+  const paginatedReports = filteredReports.slice((historyPage - 1) * ITEMS_PER_PAGE, historyPage * ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [historyPreset, historyCustomFrom, historyCustomTo]);
+
+  // --- Team member's history filtering and pagination ---
+  const filteredMemberSurveys = useMemo(() => {
+    if (memberHistoryPreset === "all") return memberSurveys;
+
+    let fromDate: string;
+    let toDate: string = new Date().toISOString().split("T")[0];
+
+    if (memberHistoryPreset === "custom") {
+      if (!memberHistoryCustomFrom && !memberHistoryCustomTo) return memberSurveys;
+      fromDate = memberHistoryCustomFrom || "1900-01-01";
+      toDate = memberHistoryCustomTo || "2999-12-31";
+    } else {
+      const days = memberHistoryPreset === "7d" ? 7 : memberHistoryPreset === "30d" ? 30 : 90;
+      fromDate = subtractDays(days);
+    }
+
+    return memberSurveys.filter((s) => s.date >= fromDate && s.date <= toDate);
+  }, [memberSurveys, memberHistoryPreset, memberHistoryCustomFrom, memberHistoryCustomTo]);
+
+  const memberTotalPages = Math.max(1, Math.ceil(filteredMemberSurveys.length / ITEMS_PER_PAGE));
+  const paginatedMemberSurveys = filteredMemberSurveys.slice((memberHistoryPage - 1) * ITEMS_PER_PAGE, memberHistoryPage * ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    setMemberHistoryPage(1);
+  }, [memberHistoryPreset, memberHistoryCustomFrom, memberHistoryCustomTo]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -191,13 +288,28 @@ export default function ManagerDashboard({
 
               {/* ═══ Team section ═══ */}
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-8 shadow-sm">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-white">Mi Equipo</h2>
-                  <span className="text-sm text-zinc-500">{team.length} usuario{team.length !== 1 ? "s" : ""}</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                  <div>
+                    <h2 className="text-xl font-semibold text-white">Mi Equipo</h2>
+                    <span className="text-sm text-zinc-500">{team.length} usuario{team.length !== 1 ? "s" : ""}</span>
+                  </div>
+
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
+                    <input
+                      type="text"
+                      placeholder="Buscar por nombre o email..."
+                      value={teamSearchQuery}
+                      onChange={(e) => setTeamSearchQuery(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-800 bg-zinc-950 py-2 pl-9 pr-4 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
+                    />
+                  </div>
                 </div>
 
                 {team.length === 0 ? (
                   <p className="text-zinc-500">No tienes usuarios asignados.</p>
+                ) : filteredTeam.length === 0 ? (
+                  <p className="text-zinc-500 text-center py-6">No se encontraron usuarios que coincidan con la búsqueda.</p>
                 ) : (
                   <>
                     {/* Desktop View */}
@@ -213,7 +325,7 @@ export default function ManagerDashboard({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-800 bg-zinc-900">
-                          {team.map((member) => (
+                          {filteredTeam.map((member) => (
                             <tr
                               key={member.id}
                               onClick={() => handleMemberClick(member)}
@@ -252,7 +364,7 @@ export default function ManagerDashboard({
 
                     {/* Mobile View */}
                     <div className="md:hidden space-y-3">
-                      {team.map((member) => (
+                      {filteredTeam.map((member) => (
                         <button
                           key={member.id}
                           onClick={() => handleMemberClick(member)}
@@ -327,49 +439,121 @@ export default function ManagerDashboard({
 
               {/* Own Reports list */}
               <div>
-                <h2 className="mb-4 text-lg font-semibold text-white">Historial de Análisis</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-white">Historial de Análisis</h2>
+                </div>
+
+                {/* History Date Filter */}
+                {!loadingReports && reports.length > 0 && (
+                  <div className="mb-4 space-y-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      {presetButtons.map((btn) => (
+                        <button
+                          key={btn.key}
+                          onClick={() => setHistoryPreset(btn.key)}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${historyPreset === btn.key
+                            ? "bg-indigo-600 text-white"
+                            : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
+                            }`}
+                        >
+                          {btn.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {historyPreset === "custom" && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="date"
+                          value={historyCustomFrom}
+                          onChange={(e) => setHistoryCustomFrom(e.target.value)}
+                          className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
+                          placeholder="Desde"
+                        />
+                        <span className="text-xs text-zinc-500">—</span>
+                        <input
+                          type="date"
+                          value={historyCustomTo}
+                          onChange={(e) => setHistoryCustomTo(e.target.value)}
+                          className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
+                          placeholder="Hasta"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {loadingReports ? (
                   <div className="text-center py-6 text-zinc-500">Cargando informes...</div>
                 ) : reports.length === 0 ? (
                   <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 text-center text-zinc-500">
                     <p className="text-sm">Completa un análisis para ver tu historial aquí.</p>
                   </div>
+                ) : filteredReports.length === 0 ? (
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 text-center text-zinc-500">
+                    <p className="text-sm">No tienes análisis en el rango seleccionado.</p>
+                  </div>
                 ) : (
-                  <div className="space-y-3">
-                    {reports.map((report) => (
-                      <button
-                        key={report.id}
-                        onClick={() => {
-                          setSelectedReport(report);
-                          setIsReportViewOpen(true);
-                        }}
-                        className="w-full rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-left transition hover:bg-zinc-800/50 group"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 group-hover:bg-indigo-900/50 group-hover:text-indigo-300 transition-colors">
-                              <FileText size={20} />
+                  <div className="space-y-4">
+                    <div className="space-y-3">
+                      {paginatedReports.map((report) => (
+                        <button
+                          key={report.id}
+                          onClick={() => {
+                            setSelectedReport(report);
+                            setIsReportViewOpen(true);
+                          }}
+                          className="w-full rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-left transition hover:bg-zinc-800/50 group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 group-hover:bg-indigo-900/50 group-hover:text-indigo-300 transition-colors">
+                                <FileText size={20} />
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium text-zinc-200">
+                                  {new Date(report.survey.date + "T00:00:00").toLocaleDateString("es-PE", {
+                                    weekday: "short",
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                  })}
+                                </div>
+                                <div className="text-xs text-zinc-500">
+                                  Puntuación: {report.score}%
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="text-sm font-medium text-zinc-200">
-                                {new Date(report.survey.date + "T00:00:00").toLocaleDateString("es-PE", {
-                                  weekday: "short",
-                                  year: "numeric",
-                                  month: "short",
-                                  day: "numeric",
-                                })}
-                              </div>
-                              <div className="text-xs text-zinc-500">
-                                Puntuación: {report.score}%
-                              </div>
+                            <div className={`rounded-full px-2.5 py-1 text-xs font-medium border ${getScoreBadgeColor(report.score)}`}>
+                              {getScoreLabel(report.score)}
                             </div>
                           </div>
-                          <div className={`rounded-full px-2.5 py-1 text-xs font-medium border ${getScoreBadgeColor(report.score)}`}>
-                            {getScoreLabel(report.score)}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between border-t border-zinc-800 pt-4">
+                        <button
+                          onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                          disabled={historyPage === 1}
+                          className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Anterior
+                        </button>
+                        <span className="text-xs text-zinc-500">
+                          Página {historyPage} de {totalPages}
+                        </span>
+                        <button
+                          onClick={() => setHistoryPage((p) => Math.min(totalPages, p + 1))}
+                          disabled={historyPage === totalPages}
+                          className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -528,7 +712,7 @@ export default function ManagerDashboard({
             if (result.report) {
               setLatestReport({
                 report: result.report,
-                score: result.burnout_probability ? Math.round(result.burnout_probability * 100) : 0,
+                score: result.burnout_probability_percent ? Math.round(result.burnout_probability_percent) : 0,
                 reportId: result.reportId || undefined,
               });
             }
@@ -548,7 +732,7 @@ export default function ManagerDashboard({
           if (predictionResult?.report) {
             setLatestReport({
               report: predictionResult.report,
-              score: predictionResult.burnout_probability ? Math.round(predictionResult.burnout_probability * 100) : 0,
+              score: predictionResult.burnout_probability_percent ? Math.round(predictionResult.burnout_probability_percent) : 0,
               reportId: predictionResult.reportId || undefined,
             });
             setIsLatestReportOpen(true);
@@ -560,9 +744,8 @@ export default function ManagerDashboard({
       >
         {predictionResult && (
           <BurnoutResult
-            prediction={predictionResult.prediction}
-            burnoutProbability={predictionResult.burnout_probability}
-            status={predictionResult.status}
+            result={predictionResult}
+            onClose={() => setIsResultOpen(false)}
           />
         )}
       </Modal>
@@ -678,21 +861,91 @@ export default function ManagerDashboard({
               <SurveyLineChart data={memberSurveys} />
 
               <div>
-                <h4 className="text-sm font-medium text-zinc-300 mb-3">Historial ({memberSurveys.length} análisis)</h4>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {[...memberSurveys].reverse().map((survey, idx) => (
-                    <div key={idx} className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-2.5">
-                      <span className="text-sm text-zinc-400">
-                        {new Date(survey.date + "T00:00:00").toLocaleDateString("es-PE", {
-                          day: "numeric", month: "short", year: "numeric",
-                        })}
-                      </span>
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getScoreColor(survey.score)}`}>
-                        {survey.score}% · {getScoreLabel(survey.score)}
-                      </span>
+                <h4 className="text-sm font-medium text-zinc-300 mb-3">Historial ({filteredMemberSurveys.length} análisis en este rango)</h4>
+
+                {/* Member History Date Filter */}
+                <div className="mb-4 space-y-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    {presetButtons.map((btn) => (
+                      <button
+                        key={btn.key}
+                        onClick={() => setMemberHistoryPreset(btn.key)}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${memberHistoryPreset === btn.key
+                          ? "bg-indigo-600 text-white"
+                          : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
+                          }`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {memberHistoryPreset === "custom" && (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={memberHistoryCustomFrom}
+                        onChange={(e) => setMemberHistoryCustomFrom(e.target.value)}
+                        className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
+                        placeholder="Desde"
+                      />
+                      <span className="text-xs text-zinc-500">—</span>
+                      <input
+                        type="date"
+                        value={memberHistoryCustomTo}
+                        onChange={(e) => setMemberHistoryCustomTo(e.target.value)}
+                        className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
+                        placeholder="Hasta"
+                      />
                     </div>
-                  ))}
+                  )}
                 </div>
+
+                {filteredMemberSurveys.length === 0 ? (
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 text-center text-zinc-500">
+                    <p className="text-sm">No hay análisis en el rango seleccionado.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      {[...paginatedMemberSurveys].reverse().map((survey, idx) => (
+                        <div key={idx} className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-2.5">
+                          <span className="text-sm text-zinc-400">
+                            {new Date(survey.date + "T00:00:00").toLocaleDateString("es-PE", {
+                              day: "numeric", month: "short", year: "numeric",
+                            })}
+                          </span>
+                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getScoreColor(survey.score)}`}>
+                            {survey.score}% · {getScoreLabel(survey.score)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Member Pagination Controls */}
+                    {memberTotalPages > 1 && (
+                      <div className="flex items-center justify-between border-t border-zinc-800 pt-4">
+                        <button
+                          onClick={() => setMemberHistoryPage((p) => Math.max(1, p - 1))}
+                          disabled={memberHistoryPage === 1}
+                          className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Anterior
+                        </button>
+                        <span className="text-xs text-zinc-500">
+                          Página {memberHistoryPage} de {memberTotalPages}
+                        </span>
+                        <button
+                          onClick={() => setMemberHistoryPage((p) => Math.min(memberTotalPages, p + 1))}
+                          disabled={memberHistoryPage === memberTotalPages}
+                          className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           )}

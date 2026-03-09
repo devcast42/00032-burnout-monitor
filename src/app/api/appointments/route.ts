@@ -15,7 +15,10 @@ export async function GET() {
         // Doctor sees their patients' appointments
         appointments = await prisma.appointment.findMany({
             where: { doctorId: user.id },
-            include: { doctor: { select: { name: true, specialty: true } } },
+            include: {
+                doctor: { select: { name: true, specialty: true } },
+                patient: { select: { id: true } }
+            },
             orderBy: { date: "desc" },
         });
     } else {
@@ -27,7 +30,16 @@ export async function GET() {
         });
     }
 
-    return NextResponse.json({ appointments });
+    // Map appointments to include patientId cleanly
+    const formattedAppointments = appointments.map(appt => {
+        const patientData = "patient" in appt ? (appt as any).patient : null;
+        return {
+            ...appt,
+            patientId: patientData ? patientData.id : null
+        };
+    });
+
+    return NextResponse.json({ appointments: formattedAppointments });
 }
 
 export async function POST(request: Request) {
