@@ -10,7 +10,7 @@ import BurnoutResult from "./BurnoutResult";
 import SurveyReportView from "./SurveyReportView";
 import SurveyLineChart from "./SurveyLineChart";
 import Modal from "./Modal";
-import { Home, Calendar, User as UserIcon, Video, Clock, ChevronRight, TrendingUp, Activity, FileText, Search } from "lucide-react";
+import { Home, Calendar, User as UserIcon, Video, Clock, ChevronRight, TrendingUp, Activity, FileText, Search, Sparkles, LayoutDashboard, Users, UserCircle, Loader2, LogOut, ArrowUpRight } from "lucide-react";
 
 type Tab = "home" | "appointments" | "user";
 
@@ -42,11 +42,11 @@ type Report = {
 };
 
 function getScoreColor(score: number) {
-  if (score <= 25) return "bg-green-900/50 text-green-200 border border-green-800";
-  if (score <= 45) return "bg-blue-900/50 text-blue-200 border border-blue-800";
-  if (score <= 65) return "bg-yellow-900/50 text-yellow-200 border border-yellow-800";
-  if (score <= 80) return "bg-orange-900/50 text-orange-200 border border-orange-800";
-  return "bg-red-900/50 text-red-200 border border-red-800";
+  if (score <= 25) return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-emerald-500/10";
+  if (score <= 45) return "bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-blue-500/10";
+  if (score <= 65) return "bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-amber-500/10";
+  if (score <= 80) return "bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-orange-500/10";
+  return "bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-rose-500/10";
 }
 
 function getScoreLabel(score: number) {
@@ -58,11 +58,7 @@ function getScoreLabel(score: number) {
 }
 
 function getScoreBadgeColor(score: number) {
-  if (score <= 25) return "bg-green-900/50 text-green-200 border-green-800";
-  if (score <= 45) return "bg-blue-900/50 text-blue-200 border-blue-800";
-  if (score <= 65) return "bg-yellow-900/50 text-yellow-200 border-yellow-800";
-  if (score <= 80) return "bg-orange-900/50 text-orange-200 border-orange-800";
-  return "bg-red-900/50 text-red-200 border-red-800";
+  return getScoreColor(score);
 }
 
 export default function ManagerDashboard({
@@ -77,7 +73,7 @@ export default function ManagerDashboard({
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loadingAppointments, setLoadingAppointments] = useState(false);
 
-  // Own survey state (same as user dashboard)
+  // Own survey state
   const [predictionResult, setPredictionResult] = useState<{ prediction: number; burnout_probability_percent: number; status: string; top_3_influential_factors?: string[]; report?: string | null; reportId?: string | null } | null>(null);
   const [isResultOpen, setIsResultOpen] = useState(false);
   const [isAnalyzeOpen, setIsAnalyzeOpen] = useState(false);
@@ -102,7 +98,7 @@ export default function ManagerDashboard({
   // Search filter for team
   const [teamSearchQuery, setTeamSearchQuery] = useState("");
 
-  // History filtering and pagination state (Manager's own reports)
+  // History filtering and pagination state
   type FilterPreset = "7d" | "30d" | "90d" | "all" | "custom";
   const [historyPreset, setHistoryPreset] = useState<FilterPreset>("all");
   const [historyCustomFrom, setHistoryCustomFrom] = useState("");
@@ -110,7 +106,7 @@ export default function ManagerDashboard({
   const [historyPage, setHistoryPage] = useState(1);
   const ITEMS_PER_PAGE = 5;
 
-  // History filtering and pagination state (Team Member's reports)
+  // History filtering and pagination state for Member
   const [memberHistoryPreset, setMemberHistoryPreset] = useState<FilterPreset>("all");
   const [memberHistoryCustomFrom, setMemberHistoryCustomFrom] = useState("");
   const [memberHistoryCustomTo, setMemberHistoryCustomTo] = useState("");
@@ -190,7 +186,6 @@ export default function ManagerDashboard({
     { key: "custom", label: "Rango" },
   ];
 
-  // --- Search team members ---
   const filteredTeam = useMemo(() => {
     if (!teamSearchQuery.trim()) return team;
     const query = teamSearchQuery.toLowerCase();
@@ -200,13 +195,10 @@ export default function ManagerDashboard({
     );
   }, [team, teamSearchQuery]);
 
-  // --- Manager's own history filtering and pagination ---
   const filteredReports = useMemo(() => {
     if (historyPreset === "all") return reports;
-
     let fromDate: string;
     let toDate: string = new Date().toISOString().split("T")[0];
-
     if (historyPreset === "custom") {
       if (!historyCustomFrom && !historyCustomTo) return reports;
       fromDate = historyCustomFrom || "1900-01-01";
@@ -215,7 +207,6 @@ export default function ManagerDashboard({
       const days = historyPreset === "7d" ? 7 : historyPreset === "30d" ? 30 : 90;
       fromDate = subtractDays(days);
     }
-
     return reports.filter((r) => r.survey.date >= fromDate && r.survey.date <= toDate);
   }, [reports, historyPreset, historyCustomFrom, historyCustomTo]);
 
@@ -226,13 +217,10 @@ export default function ManagerDashboard({
     setHistoryPage(1);
   }, [historyPreset, historyCustomFrom, historyCustomTo]);
 
-  // --- Team member's history filtering and pagination ---
   const filteredMemberSurveys = useMemo(() => {
     if (memberHistoryPreset === "all") return memberSurveys;
-
     let fromDate: string;
     let toDate: string = new Date().toISOString().split("T")[0];
-
     if (memberHistoryPreset === "custom") {
       if (!memberHistoryCustomFrom && !memberHistoryCustomTo) return memberSurveys;
       fromDate = memberHistoryCustomFrom || "1900-01-01";
@@ -241,7 +229,6 @@ export default function ManagerDashboard({
       const days = memberHistoryPreset === "7d" ? 7 : memberHistoryPreset === "30d" ? 30 : 90;
       fromDate = subtractDays(days);
     }
-
     return memberSurveys.filter((s) => s.date >= fromDate && s.date <= toDate);
   }, [memberSurveys, memberHistoryPreset, memberHistoryCustomFrom, memberHistoryCustomTo]);
 
@@ -254,10 +241,10 @@ export default function ManagerDashboard({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "SCHEDULED": return "bg-blue-900/50 text-blue-200 border-blue-800";
-      case "IN_PROGRESS": return "bg-yellow-900/50 text-yellow-200 border-yellow-800";
-      case "COMPLETED": return "bg-green-900/50 text-green-200 border-green-800";
-      case "CANCELLED": return "bg-red-900/50 text-red-200 border-red-800";
+      case "SCHEDULED": return "bg-indigo-500/10 text-indigo-400 border-indigo-500/20 shadow-indigo-500/10";
+      case "IN_PROGRESS": return "bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-amber-500/10";
+      case "COMPLETED": return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-emerald-500/10";
+      case "CANCELLED": return "bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-rose-500/10";
       default: return "bg-zinc-800 text-zinc-400 border-zinc-700";
     }
   };
@@ -272,366 +259,217 @@ export default function ManagerDashboard({
     }
   };
 
-  // Chart data from own reports
   const chartData = reports.map((r) => ({
     date: r.survey.date,
     score: r.score,
   }));
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-950 pb-20">
-      <div className="flex-1 px-6 py-8">
+    <div className="relative flex min-h-screen flex-col bg-[#050507] pb-24 overflow-hidden">
+      <div className="absolute top-0 left-0 h-[600px] w-[600px] rounded-full bg-indigo-600/5 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-0 right-0 h-[600px] w-[600px] rounded-full bg-blue-600/5 blur-[120px] pointer-events-none" />
+
+      <div className="flex-1 px-6 py-10 relative z-10">
         <div className="mx-auto w-full max-w-5xl">
           {activeTab === "home" && (
-            <div className="space-y-8">
-              <h1 className="text-2xl font-semibold text-white">Hola, {user.name}</h1>
-
-              {/* ═══ Team section ═══ */}
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-8 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                  <div>
-                    <h2 className="text-xl font-semibold text-white">Mi Equipo</h2>
-                    <span className="text-sm text-zinc-500">{team.length} usuario{team.length !== 1 ? "s" : ""}</span>
+            <div className="space-y-10">
+              <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div>
+                  <div className="flex items-center gap-2 mb-1 text-indigo-400">
+                    <Sparkles size={14} />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">Panel de Control</span>
                   </div>
+                  <h1 className="text-gradient text-4xl font-black tracking-tight">Hola, {user.name}</h1>
+                  <p className="mt-2 text-sm text-zinc-500 font-medium max-w-md">
+                    Gestiona el bienestar de tu equipo y supervisa las métricas de burnout.
+                  </p>
+                </div>
+                <div className="glass premium-border flex items-center gap-4 rounded-2xl p-4 shadow-xl">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
+                    <Users size={20} />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 text-right">Tu Equipo</div>
+                    <div className="text-xl font-black text-white text-right">{team.length} Integrantes</div>
+                  </div>
+                </div>
+              </header>
 
-                  <div className="relative w-full sm:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
+              <section className="glass premium-border rounded-3xl overflow-hidden shadow-2xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-8 border-b border-white/5 bg-white/[0.02]">
+                  <div>
+                    <h2 className="text-xl font-black text-white tracking-tight">Mi Equipo</h2>
+                    <p className="text-sm text-zinc-500 font-medium">Supervisión de salud preventiva</p>
+                  </div>
+                  <div className="relative w-full sm:w-72 group">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-indigo-400 transition-colors" size={16} />
                     <input
                       type="text"
-                      placeholder="Buscar por nombre o email..."
+                      placeholder="Filtrar integrantes..."
                       value={teamSearchQuery}
                       onChange={(e) => setTeamSearchQuery(e.target.value)}
-                      className="w-full rounded-lg border border-zinc-800 bg-zinc-950 py-2 pl-9 pr-4 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
+                      className="w-full rounded-2xl border border-white/5 bg-black/40 py-2.5 pl-11 pr-4 text-xs font-bold text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all"
                     />
                   </div>
                 </div>
 
-                {team.length === 0 ? (
-                  <p className="text-zinc-500">No tienes usuarios asignados.</p>
-                ) : filteredTeam.length === 0 ? (
-                  <p className="text-zinc-500 text-center py-6">No se encontraron usuarios que coincidan con la búsqueda.</p>
-                ) : (
-                  <>
-                    {/* Desktop View */}
-                    <div className="hidden md:block overflow-hidden rounded-lg border border-zinc-800">
-                      <table className="w-full text-left text-sm text-zinc-400">
-                        <thead className="bg-zinc-950 text-zinc-200">
+                <div className="p-2">
+                  {filteredTeam.length === 0 ? (
+                    <div className="py-20 text-center">
+                      <Search className="mx-auto mb-4 text-zinc-800" size={48} />
+                      <p className="text-sm text-zinc-500 font-medium">Sin resultados.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-2xl">
+                      <table className="w-full text-left text-sm">
+                        <thead className="text-[10px] font-black uppercase tracking-widest text-zinc-500 bg-white/[0.01]">
                           <tr>
-                            <th className="px-6 py-3 font-medium">Nombre</th>
-                            <th className="px-6 py-3 font-medium">Email</th>
-                            <th className="px-6 py-3 font-medium">Última Encuesta</th>
-                            <th className="px-6 py-3 font-medium">Estado</th>
-                            <th className="px-6 py-3 font-medium"></th>
+                            <th className="px-6 py-4">Integrante</th>
+                            <th className="px-6 py-4">Última Encuesta</th>
+                            <th className="px-6 py-4 text-right">Nivel de Riesgo</th>
+                            <th className="px-6 py-4 w-10"></th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-800 bg-zinc-900">
+                        <tbody className="divide-y divide-white/[0.03]">
                           {filteredTeam.map((member) => (
-                            <tr
-                              key={member.id}
-                              onClick={() => handleMemberClick(member)}
-                              className="hover:bg-zinc-800/50 transition-colors cursor-pointer group"
-                            >
-                              <td className="px-6 py-4 font-medium text-white">{member.name}</td>
-                              <td className="px-6 py-4">{member.email}</td>
-                              <td className="px-6 py-4">
-                                {member.lastSurvey
-                                  ? new Date(member.lastSurvey.date + "T00:00:00").toLocaleDateString("es-PE", {
-                                    day: "numeric", month: "short",
-                                  })
-                                  : "Nunca"}
+                            <tr key={member.id} onClick={() => handleMemberClick(member)} className="group hover:bg-white/[0.02] transition-colors cursor-pointer">
+                              <td className="px-6 py-5">
+                                <div className="flex items-center gap-4">
+                                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 border border-white/5 font-bold text-zinc-400 group-hover:bg-indigo-500 group-hover:text-white transition-all shadow-inner">
+                                    {member.name.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-white group-hover:text-indigo-400 transition-colors uppercase tracking-tight">{member.name}</div>
+                                    <div className="text-[10px] text-zinc-500 font-medium">{member.email}</div>
+                                  </div>
+                                </div>
                               </td>
-                              <td className="px-6 py-4">
+                              <td className="px-6 py-5 text-zinc-400 font-semibold text-xs">
+                                <div className="flex items-center gap-2">
+                                  <Clock size={14} className="text-zinc-600" />
+                                  {member.lastSurvey ? new Date(member.lastSurvey.date + "T00:00:00").toLocaleDateString("es-PE", { day: "numeric", month: "long" }) : "Pendiente"}
+                                </div>
+                              </td>
+                              <td className="px-6 py-5 text-right">
                                 {member.lastSurvey ? (
-                                  <span
-                                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getScoreColor(
-                                      member.lastSurvey.score
-                                    )}`}
-                                  >
-                                    {member.lastSurvey.score}% · {getScoreLabel(member.lastSurvey.score)}
+                                  <span className={`rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest border ${getScoreColor(member.lastSurvey.score)} shadow-sm`}>
+                                    {member.lastSurvey.score}%
                                   </span>
                                 ) : (
-                                  <span className="text-zinc-600 italic">Sin datos</span>
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-800">Inactivo</span>
                                 )}
                               </td>
-                              <td className="px-6 py-4">
-                                <ChevronRight size={16} className="text-zinc-600 group-hover:text-zinc-300 transition-colors" />
+                              <td className="px-6 py-5">
+                                <ChevronRight size={16} className="text-zinc-700 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
                               </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
+                  )}
+                </div>
+              </section>
 
-                    {/* Mobile View */}
-                    <div className="md:hidden space-y-3">
-                      {filteredTeam.map((member) => (
-                        <button
-                          key={member.id}
-                          onClick={() => handleMemberClick(member)}
-                          className="w-full rounded-xl border border-zinc-800 bg-zinc-950/50 p-4 space-y-3 text-left transition hover:bg-zinc-800/50 group"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-medium text-white">{member.name}</div>
-                              <div className="text-sm text-zinc-500">{member.email}</div>
-                            </div>
-                            <ChevronRight size={16} className="text-zinc-600 group-hover:text-zinc-300 transition-colors" />
-                          </div>
+              <div className="grid md:grid-cols-3 gap-8">
+                <div className="md:col-span-1 space-y-6">
+                  <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                    <Activity size={14} className="text-indigo-400" /> Auto-Análisis
+                  </h2>
+                  <button onClick={() => { setAnalyzeError(null); setIsAnalyzeOpen(true); }} className="glass premium-border group relative w-full rounded-3xl p-8 text-center transition-all hover:bg-indigo-500 hover:scale-[1.02] shadow-2xl">
+                    <Activity className="mx-auto mb-4 text-indigo-400 group-hover:text-white transition-all" size={48} />
+                    <div className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 group-hover:text-white transition-colors">Iniciar Test</div>
+                  </button>
+                </div>
+                <div className="md:col-span-2 space-y-6">
+                  <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                    <TrendingUp size={14} className="text-indigo-400" /> Evolución Personal
+                  </h2>
+                  <div className="glass premium-border rounded-3xl p-6 h-[260px] shadow-2xl overflow-hidden">
+                    <SurveyLineChart data={chartData} />
+                  </div>
+                </div>
+              </div>
 
-                          <div className="flex items-center justify-between text-sm pt-2 border-t border-zinc-800/50">
-                            <span className="text-zinc-400">Última encuesta:</span>
-                            <span className="text-zinc-200">
-                              {member.lastSurvey
-                                ? new Date(member.lastSurvey.date + "T00:00:00").toLocaleDateString("es-PE", {
-                                  day: "numeric", month: "short",
-                                })
-                                : "Nunca"}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-zinc-400">Estado:</span>
-                            {member.lastSurvey ? (
-                              <span
-                                className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getScoreColor(
-                                  member.lastSurvey.score
-                                )}`}
-                              >
-                                {member.lastSurvey.score}% · {getScoreLabel(member.lastSurvey.score)}
-                              </span>
-                            ) : (
-                              <span className="text-zinc-600 italic">Sin datos</span>
-                            )}
-                          </div>
-                        </button>
-                      ))}
+              <section className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                  <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                    <FileText size={14} className="text-indigo-400" /> Historial de Análisis
+                  </h2>
+                  {!loadingReports && reports.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="glass premium-border flex p-1 rounded-xl shadow-inner">
+                        {presetButtons.map((btn) => (
+                          <button key={btn.key} onClick={() => setHistoryPreset(btn.key)} className={`rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-all ${historyPreset === btn.key ? "bg-white text-black shadow-lg" : "text-zinc-500 hover:text-zinc-300"}`}>
+                            {btn.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </>
-                )}
-              </div>
-
-              {/* ═══ Own analysis section (same as user dashboard) ═══ */}
-              <div>
-                <h2 className="mb-4 text-lg font-semibold text-white">Análisis de Burnout</h2>
-                {analyzeError && (
-                  <div className="mb-4 rounded-lg bg-red-900/50 p-3 text-sm text-red-200 border border-red-800">
-                    {analyzeError}
-                  </div>
-                )}
-                <button
-                  onClick={() => {
-                    setAnalyzeError(null);
-                    setIsAnalyzeOpen(true);
-                  }}
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900 p-8 text-center hover:bg-zinc-800 transition-colors group"
-                >
-                  <div className="mb-2 text-zinc-500 group-hover:text-blue-400 transition-colors">
-                    <Activity className="mx-auto" size={36} />
-                  </div>
-                  <div className="text-sm font-medium text-zinc-400 group-hover:text-white transition-colors">
-                    Analizar
-                  </div>
-                </button>
-              </div>
-
-              {/* Own Line Chart */}
-              <SurveyLineChart data={chartData} />
-
-              {/* Own Reports list */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-white">Historial de Análisis</h2>
+                  )}
                 </div>
 
-                {/* History Date Filter */}
-                {!loadingReports && reports.length > 0 && (
-                  <div className="mb-4 space-y-2">
-                    <div className="flex flex-wrap gap-1.5">
-                      {presetButtons.map((btn) => (
-                        <button
-                          key={btn.key}
-                          onClick={() => setHistoryPreset(btn.key)}
-                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${historyPreset === btn.key
-                            ? "bg-indigo-600 text-white"
-                            : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
-                            }`}
-                        >
-                          {btn.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {historyPreset === "custom" && (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="date"
-                          value={historyCustomFrom}
-                          onChange={(e) => setHistoryCustomFrom(e.target.value)}
-                          className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
-                          placeholder="Desde"
-                        />
-                        <span className="text-xs text-zinc-500">—</span>
-                        <input
-                          type="date"
-                          value={historyCustomTo}
-                          onChange={(e) => setHistoryCustomTo(e.target.value)}
-                          className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
-                          placeholder="Hasta"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-
                 {loadingReports ? (
-                  <div className="text-center py-6 text-zinc-500">Cargando informes...</div>
+                  <div className="py-20 text-center"><Loader2 size={32} className="animate-spin mx-auto mb-4 opacity-30 text-indigo-400" /></div>
                 ) : reports.length === 0 ? (
-                  <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 text-center text-zinc-500">
-                    <p className="text-sm">Completa un análisis para ver tu historial aquí.</p>
-                  </div>
-                ) : filteredReports.length === 0 ? (
-                  <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 text-center text-zinc-500">
-                    <p className="text-sm">No tienes análisis en el rango seleccionado.</p>
-                  </div>
+                  <div className="glass premium-border rounded-3xl p-12 text-center shadow-xl text-zinc-500 italic">Sin datos de historial.</div>
                 ) : (
-                  <div className="space-y-4">
-                    <div className="space-y-3">
-                      {paginatedReports.map((report) => (
-                        <button
-                          key={report.id}
-                          onClick={() => {
-                            setSelectedReport(report);
-                            setIsReportViewOpen(true);
-                          }}
-                          className="w-full rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-left transition hover:bg-zinc-800/50 group"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 group-hover:bg-indigo-900/50 group-hover:text-indigo-300 transition-colors">
-                                <FileText size={20} />
-                              </div>
-                              <div>
-                                <div className="text-sm font-medium text-zinc-200">
-                                  {new Date(report.survey.date + "T00:00:00").toLocaleDateString("es-PE", {
-                                    weekday: "short",
-                                    year: "numeric",
-                                    month: "short",
-                                    day: "numeric",
-                                  })}
-                                </div>
-                                <div className="text-xs text-zinc-500">
-                                  Puntuación: {report.score}%
-                                </div>
-                              </div>
-                            </div>
-                            <div className={`rounded-full px-2.5 py-1 text-xs font-medium border ${getScoreBadgeColor(report.score)}`}>
-                              {getScoreLabel(report.score)}
-                            </div>
+                  <div className="space-y-3">
+                    {paginatedReports.map((report) => (
+                      <button key={report.id} onClick={() => { setSelectedReport(report); setIsReportViewOpen(true); }} className="glass premium-border group flex items-center justify-between rounded-2xl p-5 text-left transition-all hover:bg-white/[0.04] active:scale-[0.99] shadow-lg">
+                        <div className="flex items-center gap-5">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900 border border-white/5 text-zinc-500 group-hover:bg-indigo-500 group-hover:text-white transition-all shadow-inner"><FileText size={20} /></div>
+                          <div>
+                            <div className="text-sm font-black text-white group-hover:text-indigo-400 transition-colors uppercase tracking-tight">{new Date(report.survey.date + "T00:00:00").toLocaleDateString("es-PE", { weekday: "short", day: "numeric", month: "long" })}</div>
+                            <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-0.5">Burnout Score: {report.score}%</div>
                           </div>
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Pagination Controls */}
-                    {totalPages > 1 && (
-                      <div className="flex items-center justify-between border-t border-zinc-800 pt-4">
-                        <button
-                          onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
-                          disabled={historyPage === 1}
-                          className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Anterior
-                        </button>
-                        <span className="text-xs text-zinc-500">
-                          Página {historyPage} de {totalPages}
-                        </span>
-                        <button
-                          onClick={() => setHistoryPage((p) => Math.min(totalPages, p + 1))}
-                          disabled={historyPage === totalPages}
-                          className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Siguiente
-                        </button>
-                      </div>
-                    )}
+                        </div>
+                        <div className={`rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest border ${getScoreBadgeColor(report.score)} shadow-sm`}>{getScoreLabel(report.score)}</div>
+                      </button>
+                    ))}
                   </div>
                 )}
-              </div>
+              </section>
             </div>
           )}
 
           {activeTab === "appointments" && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-semibold text-white">Mis Citas</h1>
-                <button
-                  onClick={() => router.push("/user/appointments/new")}
-                  className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-zinc-200 transition-colors"
-                >
-                  + Agendar
-                </button>
-              </div>
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <header>
+                <div className="flex items-center gap-2 mb-1 text-indigo-400">
+                  <Video size={14} />
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em]">Sesiones Virtuales</span>
+                </div>
+                <h1 className="text-gradient text-4xl font-black tracking-tight">Citas Médicas</h1>
+              </header>
 
               {loadingAppointments ? (
-                <div className="text-center py-8 text-zinc-500">Cargando citas...</div>
+                <div className="py-20 text-center"><Loader2 size={32} className="animate-spin mx-auto mb-4 opacity-30 text-indigo-400" /></div>
               ) : appointments.length === 0 ? (
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-8 text-center text-zinc-500">
-                  <Calendar className="mx-auto mb-4 h-12 w-12 opacity-50" />
-                  <p className="mb-4">No tienes citas agendadas.</p>
-                  <button
-                    onClick={() => router.push("/user/appointments/new")}
-                    className="text-sm text-white underline hover:text-zinc-300"
-                  >
-                    Agendar tu primera cita
-                  </button>
+                <div className="glass premium-border rounded-3xl p-20 text-center shadow-2xl">
+                  <Calendar size={48} className="mx-auto mb-4 text-zinc-800" />
+                  <p className="text-zinc-500 font-medium">No tienes citas programadas.</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="grid sm:grid-cols-2 gap-4">
                   {appointments.map((appt) => (
-                    <div
-                      key={appt.id}
-                      className="rounded-xl border border-zinc-800 bg-zinc-900 p-5 transition hover:bg-zinc-800/50"
-                    >
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <h3 className="font-semibold text-white">{appt.doctor.name}</h3>
-                          <p className="text-sm text-zinc-400">{appt.doctor.specialty}</p>
+                    <div key={appt.id} className="glass premium-border rounded-3xl p-6 shadow-xl space-y-5 transition-all hover:scale-[1.01]">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400">{appt.doctor.specialty}</div>
+                          <h3 className="text-lg font-black text-white tracking-tight leading-none">{appt.doctor.name}</h3>
                         </div>
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium border ${getStatusColor(
-                            appt.status
-                          )}`}
-                        >
+                        <div className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${getStatusColor(appt.status)} shadow-sm`}>
                           {getStatusLabel(appt.status)}
-                        </span>
-                      </div>
-
-                      <div className="space-y-2 text-sm text-zinc-400 mb-4">
-                        <div className="flex items-center gap-2">
-                          <Calendar size={16} />
-                          {new Date(appt.date).toLocaleDateString("es-PE", {
-                            weekday: "long",
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Clock size={16} />
-                          {new Date(appt.date).toLocaleTimeString("es-PE", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
                         </div>
                       </div>
-
+                      <div className="flex items-center gap-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                        <div className="flex items-center gap-1.5"><Calendar size={12} className="text-zinc-600" /> {new Date(appt.date).toLocaleDateString()}</div>
+                        <div className="flex items-center gap-1.5"><Clock size={12} className="text-zinc-600" /> {new Date(appt.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                      </div>
                       {(appt.status === "SCHEDULED" || appt.status === "IN_PROGRESS") && (
-                        <button
-                          onClick={() => router.push(`/user/appointments/${appt.id}/call`)}
-                          className="flex w-full items-center justify-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-zinc-200 transition-colors"
-                        >
-                          <Video size={16} />
-                          Unirse a la llamada
+                        <button onClick={() => router.push(`/user/appointments/${appt.id}/call`)} className="w-full flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-400 text-white py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/20 active:scale-95">
+                          <Video size={14} /> Entrar a Videollamada
                         </button>
                       )}
                     </div>
@@ -642,25 +480,33 @@ export default function ManagerDashboard({
           )}
 
           {activeTab === "user" && (
-            <div className="space-y-6">
-              <h1 className="text-2xl font-semibold text-white">Perfil</h1>
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <header>
+                <div className="flex items-center gap-2 mb-1 text-indigo-400">
+                  <UserCircle size={14} />
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em]">Configuración</span>
+                </div>
+                <h1 className="text-gradient text-4xl font-black tracking-tight">Mi Perfil</h1>
+              </header>
 
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-sm space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-800 text-zinc-400">
-                    <UserIcon size={24} />
+              <div className="glass premium-border rounded-3xl p-8 shadow-2xl relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-8 text-indigo-500/10 group-hover:text-indigo-500/20 transition-colors">
+                  <UserCircle size={120} strokeWidth={1} />
+                </div>
+                <div className="relative z-10 flex flex-col sm:flex-row items-center gap-8">
+                  <div className="h-24 w-24 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-3xl font-black text-indigo-400 shadow-inner">
+                    {user.name.charAt(0)}
                   </div>
-                  <div>
-                    <div className="font-medium text-white">{user.name}</div>
-                    <div className="text-sm text-zinc-500">{user.email}</div>
-                    <div className="text-xs text-zinc-600 mt-1 uppercase tracking-wider">{user.role}</div>
+                  <div className="text-center sm:text-left space-y-2">
+                    <h2 className="text-2xl font-black text-white tracking-tight">{user.name}</h2>
+                    <div className="text-sm text-zinc-500 font-medium">{user.email}</div>
+                    <div className="inline-block px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[9px] font-black uppercase tracking-widest text-indigo-400 shadow-sm">
+                      {user.role} · Burnout Monitor Pro
+                    </div>
                   </div>
                 </div>
-
-                <div className="pt-4 border-t border-zinc-800">
-                  <div className="flex justify-end">
-                    <LogoutButton />
-                  </div>
+                <div className="relative z-10 mt-10 pt-8 border-t border-white/5 flex justify-end">
+                  <LogoutButton />
                 </div>
               </div>
             </div>
@@ -668,47 +514,30 @@ export default function ManagerDashboard({
         </div>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-800 bg-zinc-950/80 backdrop-blur-lg safe-area-bottom">
-        <div className="mx-auto flex max-w-lg items-center justify-around px-2 py-3">
-          <button
-            onClick={() => setActiveTab("home")}
-            className={`flex flex-col items-center gap-1 p-2 transition-colors ${activeTab === "home" ? "text-white" : "text-zinc-500 hover:text-zinc-300"
-              }`}
-          >
-            <Home size={24} />
-            <span className="text-xs font-medium">Home</span>
+      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-3rem)] max-w-lg">
+        <div className="glass premium-border rounded-3xl p-2 shadow-2xl flex items-center justify-between bg-black/40">
+          <button onClick={() => setActiveTab("home")} className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all duration-300 ${activeTab === "home" ? "bg-white text-black shadow-xl scale-100" : "text-zinc-500 hover:text-white hover:bg-white/5 active:scale-95"}`}>
+            <LayoutDashboard size={20} strokeWidth={activeTab === "home" ? 2.5 : 2} />
+            <span className="text-[8px] font-black uppercase tracking-widest">Inicio</span>
           </button>
-
-          <button
-            onClick={() => setActiveTab("appointments")}
-            className={`flex flex-col items-center gap-1 p-2 transition-colors ${activeTab === "appointments" ? "text-white" : "text-zinc-500 hover:text-zinc-300"
-              }`}
-          >
-            <Calendar size={24} />
-            <span className="text-xs font-medium">Citas</span>
+          <button onClick={() => setActiveTab("appointments")} className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all duration-300 ${activeTab === "appointments" ? "bg-white text-black shadow-xl scale-100" : "text-zinc-500 hover:text-white hover:bg-white/5 active:scale-95"}`}>
+            <Calendar size={20} strokeWidth={activeTab === "appointments" ? 2.5 : 2} />
+            <span className="text-[8px] font-black uppercase tracking-widest">Sesiones</span>
           </button>
-
-          <button
-            onClick={() => setActiveTab("user")}
-            className={`flex flex-col items-center gap-1 p-2 transition-colors ${activeTab === "user" ? "text-white" : "text-zinc-500 hover:text-zinc-300"
-              }`}
-          >
-            <UserIcon size={24} />
-            <span className="text-xs font-medium">Usuario</span>
+          <button onClick={() => setActiveTab("user")} className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all duration-300 ${activeTab === "user" ? "bg-white text-black shadow-xl scale-100" : "text-zinc-500 hover:text-white hover:bg-white/5 active:scale-95"}`}>
+            <UserIcon size={20} strokeWidth={activeTab === "user" ? 2.5 : 2} />
+            <span className="text-[8px] font-black uppercase tracking-widest">Perfil</span>
           </button>
         </div>
       </nav>
 
       {/* ═══ Modals ═══ */}
-
-      {/* Analysis form modal */}
       <Modal isOpen={isAnalyzeOpen} onClose={() => setIsAnalyzeOpen(false)} title="Análisis de Burnout">
         <BurnoutDynamicForm
           onResult={(result) => {
             setIsAnalyzeOpen(false);
             setPredictionResult(result);
             setIsResultOpen(true);
-
             if (result.report) {
               setLatestReport({
                 report: result.report,
@@ -717,248 +546,63 @@ export default function ManagerDashboard({
               });
             }
           }}
-          onError={(msg) => {
-            setIsAnalyzeOpen(false);
-            setAnalyzeError(msg);
-          }}
+          onError={(msg) => { setIsAnalyzeOpen(false); setAnalyzeError(msg); }}
         />
       </Modal>
 
-      {/* Prediction result modal */}
-      <Modal
-        isOpen={isResultOpen}
-        onClose={() => {
-          setIsResultOpen(false);
-          if (predictionResult?.report) {
-            setLatestReport({
-              report: predictionResult.report,
-              score: predictionResult.burnout_probability_percent ? Math.round(predictionResult.burnout_probability_percent) : 0,
-              reportId: predictionResult.reportId || undefined,
-            });
-            setIsLatestReportOpen(true);
-          } else {
-            fetchReports();
-          }
-        }}
-        title="Resultados"
-      >
-        {predictionResult && (
-          <BurnoutResult
-            result={predictionResult}
-            onClose={() => setIsResultOpen(false)}
-          />
-        )}
+      <Modal isOpen={isResultOpen} onClose={() => { setIsResultOpen(false); if (predictionResult?.report) { setIsLatestReportOpen(true); } else { fetchReports(); } }} title="Resultados">
+        {predictionResult && <BurnoutResult result={predictionResult} onClose={() => setIsResultOpen(false)} />}
       </Modal>
 
-      {/* Latest report modal */}
-      <Modal
-        isOpen={isLatestReportOpen}
-        onClose={() => {
-          setIsLatestReportOpen(false);
-          fetchReports();
-        }}
-        title="Informe Generado"
-      >
-        {latestReport && (
-          <SurveyReportView
-            report={latestReport.report}
-            score={latestReport.score}
-            reportId={latestReport.reportId}
-            onClose={() => {
-              setIsLatestReportOpen(false);
-              fetchReports();
-            }}
-          />
-        )}
+      <Modal isOpen={isLatestReportOpen} onClose={() => { setIsLatestReportOpen(false); fetchReports(); }} title="Informe de IA">
+        {latestReport && <SurveyReportView report={latestReport.report} score={latestReport.score} reportId={latestReport.reportId} onClose={() => { setIsLatestReportOpen(false); fetchReports(); }} />}
       </Modal>
 
-      {/* Selected report from history */}
-      <Modal
-        isOpen={isReportViewOpen}
-        onClose={() => {
-          setIsReportViewOpen(false);
-          setSelectedReport(null);
-        }}
-        title="Detalle del Informe"
-      >
+      <Modal isOpen={isReportViewOpen} onClose={() => { setIsReportViewOpen(false); setSelectedReport(null); }} title="Detalle del Informe">
         {selectedReport && selectedReport.report ? (
-          <SurveyReportView
-            report={selectedReport.report}
-            score={selectedReport.score}
-            date={selectedReport.createdAt}
-            reportId={selectedReport.id}
-            onClose={() => {
-              setIsReportViewOpen(false);
-              setSelectedReport(null);
-            }}
-          />
+          <SurveyReportView report={selectedReport.report} score={selectedReport.score} date={selectedReport.createdAt} reportId={selectedReport.id} onClose={() => { setIsReportViewOpen(false); setSelectedReport(null); }} />
         ) : selectedReport ? (
-          <div className="space-y-4 text-center">
+          <div className="p-8 text-center space-y-4">
             <div className="text-4xl">⏳</div>
-            <p className="text-sm text-zinc-400">
-              El informe de IA no pudo generarse para este análisis.
-            </p>
-            <p className="text-xs text-zinc-500">
-              Puntuación: {selectedReport.score}% · {selectedReport.survey.date}
-            </p>
-            <button
-              onClick={() => {
-                setIsReportViewOpen(false);
-                setSelectedReport(null);
-              }}
-              className="w-full rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-black hover:bg-zinc-200 transition-colors"
-            >
-              Cerrar
-            </button>
+            <p className="text-sm text-zinc-400 font-medium tracking-tight">El informe detallado no está disponible para este registro.</p>
+            <div className="text-[10px] font-black uppercase tracking-widest text-zinc-700">Puntuación: {selectedReport.score}%</div>
+            <button onClick={() => { setIsReportViewOpen(false); setSelectedReport(null); }} className="w-full bg-white text-black py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-95">Cerrar</button>
           </div>
         ) : null}
       </Modal>
 
-      {/* Team member score evolution modal */}
-      <Modal
-        isOpen={isMemberChartOpen}
-        onClose={() => {
-          setIsMemberChartOpen(false);
-          setSelectedMember(null);
-          setMemberSurveys([]);
-        }}
-        title={selectedMember ? `${selectedMember.name}` : "Evolución"}
-      >
-        <div className="space-y-5">
+      <Modal isOpen={isMemberChartOpen} onClose={() => { setIsMemberChartOpen(false); setSelectedMember(null); setMemberSurveys([]); }} title={selectedMember ? `${selectedMember.name}` : "Análisis de Equipo"}>
+        <div className="space-y-6">
           {selectedMember && (
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-900/50 text-indigo-300">
-                <UserIcon size={20} />
+            <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+              <div className="h-10 w-10 rounded-xl bg-indigo-500/10 flex items-center justify-center font-black text-indigo-400">{selectedMember.name.charAt(0)}</div>
+              <div className="flex-1">
+                <div className="text-sm font-black text-white leading-none mb-1">{selectedMember.name}</div>
+                <div className="text-[10px] text-zinc-500 font-medium">{selectedMember.email}</div>
               </div>
-              <div>
-                <div className="text-sm font-medium text-white">{selectedMember.name}</div>
-                <div className="text-xs text-zinc-500">{selectedMember.email}</div>
-              </div>
-              {selectedMember.lastSurvey && (
-                <div className="ml-auto">
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getScoreColor(selectedMember.lastSurvey.score)}`}>
-                    {selectedMember.lastSurvey.score}%
-                  </span>
-                </div>
-              )}
+              {selectedMember.lastSurvey && <div className={`px-2 py-0.5 rounded-full text-[9px] font-black border ${getScoreColor(selectedMember.lastSurvey.score)} shadow-sm`}>{selectedMember.lastSurvey.score}%</div>}
             </div>
           )}
 
           {loadingMemberSurveys ? (
-            <div className="flex items-center justify-center py-12 text-zinc-500">
-              <div className="text-center space-y-2">
-                <div className="animate-spin h-6 w-6 border-2 border-zinc-600 border-t-zinc-300 rounded-full mx-auto" />
-                <p className="text-sm">Cargando datos...</p>
-              </div>
-            </div>
+            <div className="py-12 text-center"><Loader2 size={24} className="animate-spin mx-auto opacity-30 text-indigo-400" /></div>
           ) : memberSurveys.length === 0 ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-8 text-center">
-              <TrendingUp size={32} className="mx-auto mb-3 text-zinc-600" />
-              <p className="text-sm text-zinc-400">Este usuario aún no ha realizado encuestas.</p>
-            </div>
+            <div className="py-12 text-center text-zinc-600 italic text-sm">Este usuario aún no tiene registros.</div>
           ) : (
             <>
-              <SurveyLineChart data={memberSurveys} />
-
-              <div>
-                <h4 className="text-sm font-medium text-zinc-300 mb-3">Historial ({filteredMemberSurveys.length} análisis en este rango)</h4>
-
-                {/* Member History Date Filter */}
-                <div className="mb-4 space-y-2">
-                  <div className="flex flex-wrap gap-1.5">
-                    {presetButtons.map((btn) => (
-                      <button
-                        key={btn.key}
-                        onClick={() => setMemberHistoryPreset(btn.key)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${memberHistoryPreset === btn.key
-                          ? "bg-indigo-600 text-white"
-                          : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
-                          }`}
-                      >
-                        {btn.label}
-                      </button>
-                    ))}
+              <div className="h-[200px]"><SurveyLineChart data={memberSurveys} /></div>
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-600 mb-2">Historial Reciente</h4>
+                {memberSurveys.slice(-5).reverse().map((s, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                    <span className="text-[10px] font-bold text-zinc-400">{new Date(s.date + "T00:00:00").toLocaleDateString()}</span>
+                    <span className={`text-[10px] font-black ${getScoreColor(s.score).split(' ').pop()}`}>{s.score}%</span>
                   </div>
-
-                  {memberHistoryPreset === "custom" && (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="date"
-                        value={memberHistoryCustomFrom}
-                        onChange={(e) => setMemberHistoryCustomFrom(e.target.value)}
-                        className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
-                        placeholder="Desde"
-                      />
-                      <span className="text-xs text-zinc-500">—</span>
-                      <input
-                        type="date"
-                        value={memberHistoryCustomTo}
-                        onChange={(e) => setMemberHistoryCustomTo(e.target.value)}
-                        className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
-                        placeholder="Hasta"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {filteredMemberSurveys.length === 0 ? (
-                  <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 text-center text-zinc-500">
-                    <p className="text-sm">No hay análisis en el rango seleccionado.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      {[...paginatedMemberSurveys].reverse().map((survey, idx) => (
-                        <div key={idx} className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-2.5">
-                          <span className="text-sm text-zinc-400">
-                            {new Date(survey.date + "T00:00:00").toLocaleDateString("es-PE", {
-                              day: "numeric", month: "short", year: "numeric",
-                            })}
-                          </span>
-                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getScoreColor(survey.score)}`}>
-                            {survey.score}% · {getScoreLabel(survey.score)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Member Pagination Controls */}
-                    {memberTotalPages > 1 && (
-                      <div className="flex items-center justify-between border-t border-zinc-800 pt-4">
-                        <button
-                          onClick={() => setMemberHistoryPage((p) => Math.max(1, p - 1))}
-                          disabled={memberHistoryPage === 1}
-                          className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Anterior
-                        </button>
-                        <span className="text-xs text-zinc-500">
-                          Página {memberHistoryPage} de {memberTotalPages}
-                        </span>
-                        <button
-                          onClick={() => setMemberHistoryPage((p) => Math.min(memberTotalPages, p + 1))}
-                          disabled={memberHistoryPage === memberTotalPages}
-                          className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Siguiente
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                ))}
               </div>
             </>
           )}
-
-          <button
-            onClick={() => {
-              setIsMemberChartOpen(false);
-              setSelectedMember(null);
-            }}
-            className="w-full rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-black hover:bg-zinc-200 transition-colors"
-          >
-            Cerrar
-          </button>
+          <button onClick={() => { setIsMemberChartOpen(false); setSelectedMember(null); }} className="w-full bg-white text-black py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all">Cerrar Panel</button>
         </div>
       </Modal>
     </div>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppointmentCard from "@/components/AppointmentCard";
-import { Home, Calendar, User as UserIcon } from "lucide-react";
+import { Home, Calendar, User as UserIcon, Plus, Loader2, Sparkles } from "lucide-react";
 
 type Appointment = {
   id: string;
@@ -37,40 +37,57 @@ export default function UserAppointmentsPage() {
   }, [router]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-950 pb-20">
-      <div className="flex-1 px-6 py-8">
+    <div className="relative flex min-h-screen flex-col bg-[#050507] pb-24 overflow-hidden">
+      {/* Background ambient light */}
+      <div className="absolute top-0 left-0 h-[500px] w-[500px] rounded-full bg-indigo-600/5 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-0 right-0 h-[500px] w-[500px] rounded-full bg-blue-600/5 blur-[120px] pointer-events-none" />
+
+      <div className="flex-1 px-6 py-10 relative z-10">
         <div className="mx-auto w-full max-w-lg">
-          <div className="flex items-center justify-between">
+          <header className="flex items-end justify-between mb-12">
             <div>
-              <h1 className="text-2xl font-semibold text-white">Mis Citas</h1>
-              <p className="mt-1 text-sm text-zinc-400">
-                Gestiona tus citas médicas y sesiones de videollamada
+              <div className="flex items-center gap-2 mb-1 text-indigo-400">
+                <Sparkles size={14} />
+                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Salud Mental</span>
+              </div>
+              <h1 className="text-gradient text-4xl font-black tracking-tight">Mis Citas</h1>
+              <p className="mt-2 text-sm text-zinc-500 font-medium">
+                Gestiona tus sesiones y bienestar médico.
               </p>
             </div>
             <button
               onClick={() => router.push("/user/appointments/new")}
-              className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black transition hover:bg-zinc-200"
+              className="group flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-black transition-all hover:scale-105 active:scale-95 shadow-lg shadow-white/5"
+              title="Agendar Cita"
             >
-              + Agendar
+              <Plus size={24} strokeWidth={3} />
             </button>
-          </div>
+          </header>
 
-          <div className="mt-8">
+          <div className="space-y-6">
             {loading ? (
-              <p className="text-sm text-zinc-500">Cargando citas...</p>
+              <div className="flex flex-col items-center justify-center py-20 text-zinc-600 italic">
+                <Loader2 size={32} className="animate-spin mb-4 text-indigo-500/30" />
+                <p className="text-sm font-bold uppercase tracking-widest text-[10px]">Cargando Citas...</p>
+              </div>
             ) : appointments.length === 0 ? (
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-6 py-12 text-center">
-                <Calendar className="mx-auto mb-4 h-12 w-12 text-zinc-600" />
-                <p className="text-sm text-zinc-500">No tienes citas agendadas aún.</p>
+              <div className="glass premium-border rounded-3xl px-8 py-16 text-center">
+                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-zinc-900/50 text-zinc-700 shadow-inner">
+                  <Calendar size={40} />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2 tracking-tight">Sin citas activas</h3>
+                <p className="text-sm text-zinc-500 font-medium mb-8 max-w-[240px] mx-auto leading-relaxed">
+                  No tienes sesiones programadas por el momento.
+                </p>
                 <button
                   onClick={() => router.push("/user/appointments/new")}
-                  className="mt-4 text-sm text-white underline hover:text-zinc-300"
+                  className="rounded-xl bg-indigo-600/10 border border-indigo-500/20 px-6 py-3 text-xs font-black uppercase tracking-widest text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all shadow-lg shadow-indigo-500/5"
                 >
-                  Agendar tu primera cita
+                  Agendar Primera Cita
                 </button>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {appointments.map((appt) => (
                   <AppointmentCard
                     key={appt.id}
@@ -89,31 +106,26 @@ export default function UserAppointmentsPage() {
       </div>
 
       {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-800 bg-zinc-950/80 backdrop-blur-lg safe-area-bottom">
-        <div className="mx-auto flex max-w-lg items-center justify-around px-2 py-3">
-          <button
-            onClick={() => router.push("/user")}
-            className="flex flex-col items-center gap-1 p-2 transition-colors text-zinc-500 hover:text-zinc-300"
-          >
-            <Home size={24} />
-            <span className="text-xs font-medium">Home</span>
-          </button>
-
-          <button
-            onClick={() => router.push("/user")}
-            className="flex flex-col items-center gap-1 p-2 transition-colors text-white"
-          >
-            <Calendar size={24} />
-            <span className="text-xs font-medium">Citas</span>
-          </button>
-
-          <button
-            onClick={() => router.push("/user")}
-            className="flex flex-col items-center gap-1 p-2 transition-colors text-zinc-500 hover:text-zinc-300"
-          >
-            <UserIcon size={24} />
-            <span className="text-xs font-medium">Usuario</span>
-          </button>
+      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md">
+        <div className="glass premium-border flex items-center justify-around rounded-3xl p-3 shadow-2xl">
+          {[
+            { id: 'user', icon: Home, label: 'Inicio', path: '/user' },
+            { id: 'appt', icon: Calendar, label: 'Citas', path: '/user/appointments', active: true },
+            { id: 'profile', icon: UserIcon, label: 'Perfil', path: '/user' },
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => router.push(item.path)}
+              className={`flex h-12 w-12 flex-col items-center justify-center rounded-2xl transition-all duration-300 group
+                ${item.active
+                  ? 'bg-white text-black shadow-lg shadow-white/5 scale-110'
+                  : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-300 hover:scale-105'
+                }`}
+            >
+              <item.icon size={item.active ? 20 : 22} />
+              {/* <span className="text-[10px] font-bold tracking-tighter mt-0.5">{item.label}</span> */}
+            </button>
+          ))}
         </div>
       </nav>
     </div>

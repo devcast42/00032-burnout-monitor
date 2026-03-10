@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Clock, Video, FileText } from "lucide-react";
+import { Calendar, Clock, Video, FileText, ChevronRight } from "lucide-react";
 import PatientHistoryModal from "./PatientHistoryModal";
 
 type AppointmentCardProps = {
@@ -17,10 +17,10 @@ type AppointmentCardProps = {
 };
 
 const statusLabels: Record<string, { label: string; color: string }> = {
-    SCHEDULED: { label: "Agendada", color: "bg-blue-900/50 text-blue-200 border-blue-800" },
-    IN_PROGRESS: { label: "En progreso", color: "bg-yellow-900/50 text-yellow-200 border-yellow-800" },
-    COMPLETED: { label: "Completada", color: "bg-green-900/50 text-green-200 border-green-800" },
-    CANCELLED: { label: "Cancelada", color: "bg-red-900/50 text-red-200 border-red-800" },
+    SCHEDULED: { label: "Agendada", color: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20 shadow-indigo-500/10" },
+    IN_PROGRESS: { label: "En progreso", color: "bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-amber-500/10" },
+    COMPLETED: { label: "Completada", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-emerald-500/10" },
+    CANCELLED: { label: "Cancelada", color: "bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-rose-500/10" },
 };
 
 export default function AppointmentCard({
@@ -38,8 +38,7 @@ export default function AppointmentCard({
 
     const dateObj = new Date(date);
     const formattedDate = dateObj.toLocaleDateString("es-PE", {
-        weekday: "long",
-        year: "numeric",
+        weekday: "short",
         month: "long",
         day: "numeric",
     });
@@ -56,54 +55,61 @@ export default function AppointmentCard({
     const canJoinCall = status === "SCHEDULED" || status === "IN_PROGRESS";
 
     return (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5 transition hover:bg-zinc-800/50">
-            <div className="flex items-start justify-between mb-4">
-                <div>
-                    <h3 className="text-base font-semibold text-white">
-                        {role === "user" ? doctorName : patientName}
-                    </h3>
-                    <p className="text-sm text-zinc-400">
-                        {role === "user" ? specialty : "Paciente"}
-                    </p>
+        <div className="glass premium-border relative overflow-hidden rounded-2xl p-5 transition-all hover:bg-white/[0.04] group">
+            <div className="flex items-start justify-between mb-5">
+                <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-bold group-hover:bg-indigo-500 group-hover:text-white transition-all shadow-inner">
+                        {(role === "user" ? doctorName : patientName)?.charAt(0)}
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-white tracking-tight group-hover:text-indigo-400 transition-colors">
+                            {role === "user" ? doctorName : patientName}
+                        </h3>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                            {role === "user" ? specialty : "Paciente Registrado"}
+                        </p>
+                    </div>
                 </div>
                 <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium border ${statusInfo.color}`}
+                    className={`rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest border ${statusInfo.color} shadow-lg shadow-black/20`}
                 >
                     {statusInfo.label}
                 </span>
             </div>
-            <div className="space-y-2 text-sm text-zinc-400 mb-4">
-                <div className="flex items-center gap-2">
-                    <Calendar size={16} />
-                    {formattedDate}
+
+            <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="flex items-center gap-2.5 rounded-xl bg-white/[0.03] border border-white/5 px-3 py-2 text-xs font-semibold text-zinc-400">
+                    <Calendar size={14} className="text-indigo-400/70" />
+                    <span>{formattedDate}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Clock size={16} />
-                    {formattedTime}
+                <div className="flex items-center gap-2.5 rounded-xl bg-white/[0.03] border border-white/5 px-3 py-2 text-xs font-semibold text-zinc-400">
+                    <Clock size={14} className="text-indigo-400/70" />
+                    <span>{formattedTime}</span>
                 </div>
             </div>
+
             <div className="flex gap-2">
                 {canJoinCall && (
                     <button
                         onClick={() => router.push(`/${role}/appointments/${id}/call`)}
-                        className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-black transition hover:bg-zinc-200"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-black uppercase tracking-widest text-black transition-all hover:bg-zinc-200 active:scale-[0.98] shadow-lg shadow-white/5"
                     >
-                        <Video size={16} />
-                        Unirse a la llamada
+                        <Video size={14} strokeWidth={3} />
+                        Unirse a Sesión
                     </button>
                 )}
                 {status === "COMPLETED" && role === "doctor" && (
                     <button
                         onClick={() => router.push(`/doctor/appointments/${id}/transcript`)}
-                        className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-700 hover:text-white"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-white/10 active:scale-[0.98]"
                     >
-                        Ver transcripción
+                        Transcripción
                     </button>
                 )}
                 {role === "doctor" && patientId && (
                     <button
                         onClick={() => setIsHistoryOpen(true)}
-                        className="flex items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 p-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-700 hover:text-white"
+                        className="flex items-center justify-center rounded-xl border border-white/10 bg-white/5 p-2.5 text-zinc-400 transition-all hover:bg-white/10 hover:text-white active:scale-[0.98]"
                         title="Ver historial del paciente"
                     >
                         <FileText size={18} />
