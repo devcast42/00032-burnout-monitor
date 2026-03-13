@@ -5,18 +5,8 @@ import path from "path";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
-/**
- * Transcribe an audio file using Google Gemini API.
- * @param filePath - Absolute path to the audio file
- * @returns The transcribed text in Spanish
- */
-export async function transcribeAudio(filePath: string): Promise<string> {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-    const audioBuffer = fs.readFileSync(filePath);
-    const base64Audio = audioBuffer.toString("base64");
-
-    const ext = path.extname(filePath).toLowerCase().replace(".", "");
+function resolveMimeType(input: string): string {
+    const normalized = input.toLowerCase();
     const mimeMap: Record<string, string> = {
         wav: "audio/wav",
         mp3: "audio/mp3",
@@ -24,8 +14,24 @@ export async function transcribeAudio(filePath: string): Promise<string> {
         webm: "audio/webm",
         m4a: "audio/mp4",
         flac: "audio/flac",
+        "audio/wav": "audio/wav",
+        "audio/mp3": "audio/mp3",
+        "audio/mpeg": "audio/mp3",
+        "audio/ogg": "audio/ogg",
+        "audio/webm": "audio/webm",
+        "audio/mp4": "audio/mp4",
+        "audio/flac": "audio/flac",
     };
-    const mimeType = mimeMap[ext] || "audio/webm";
+    return mimeMap[normalized] || "audio/webm";
+}
+
+export async function transcribeAudioBuffer(
+    audioBuffer: Buffer,
+    mimeInput: string,
+): Promise<string> {
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const base64Audio = audioBuffer.toString("base64");
+    const mimeType = resolveMimeType(mimeInput);
 
     const result = await model.generateContent([
         {
@@ -41,4 +47,15 @@ export async function transcribeAudio(filePath: string): Promise<string> {
 
     const response = result.response;
     return response.text();
+}
+
+/**
+ * Transcribe an audio file using Google Gemini API.
+ * @param filePath - Absolute path to the audio file
+ * @returns The transcribed text in Spanish
+ */
+export async function transcribeAudio(filePath: string): Promise<string> {
+    const audioBuffer = fs.readFileSync(filePath);
+    const ext = path.extname(filePath).toLowerCase().replace(".", "");
+    return transcribeAudioBuffer(audioBuffer, ext);
 }
