@@ -81,7 +81,50 @@ async function main() {
         });
     }
 
-    console.log("✅ Seed completed: 3 doctors created as users");
+    // Seed demo user account
+    const userPasswordHash = hashPassword("user123");
+    await prisma.user.upsert({
+        where: { email: "usuario@demo.com" },
+        update: {
+            name: "Juan Pérez",
+            role: "user",
+            passwordHash: userPasswordHash,
+            person: {
+                upsert: {
+                    create: {},
+                    update: {},
+                },
+            },
+        },
+        create: {
+            name: "Juan Pérez",
+            email: "usuario@demo.com",
+            role: "user",
+            passwordHash: userPasswordHash,
+            person: {
+                create: {},
+            },
+        },
+    });
+
+    // Seed demo admin account
+    const adminPasswordHash = hashPassword("admin123");
+    await prisma.user.upsert({
+        where: { email: "admin@demo.com" },
+        update: {
+            name: "Admin Demo",
+            role: "admin",
+            passwordHash: adminPasswordHash,
+        },
+        create: {
+            name: "Admin Demo",
+            email: "admin@demo.com",
+            role: "admin",
+            passwordHash: adminPasswordHash,
+        },
+    });
+
+    console.log("✅ Seed completed: 3 doctors, 1 user, and 1 admin created");
 }
 
 main()

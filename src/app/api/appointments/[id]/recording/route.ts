@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
-import { transcribeAudioBuffer } from "@/lib/transcribe";
+import { transcribeAudio } from "@/lib/transcribe";
 import { generateDiagnosisFromTranscript } from "@/lib/gemini";
 import fs from "fs";
 import path from "path";
@@ -31,25 +31,19 @@ export async function POST(request: Request, context: RouteContext) {
         );
     }
 
+    // Save audio to disk
+    const recordingsDir = path.join(process.cwd(), "public", "recordings");
+    if (!fs.existsSync(recordingsDir)) {
+        fs.mkdirSync(recordingsDir, { recursive: true });
+    }
+
     const ext = audioFile.name?.split(".").pop() || "webm";
     const fileName = `${id}.${ext}`;
-    const buffer = Buffer.from(await audioFile.arrayBuffer());
-    let audioUrl: string | null = null;
-
-    const recordingsDir = path.join(process.cwd(), "public", "recordings");
     const filePath = path.join(recordingsDir, fileName);
-    try {
-        if (!fs.existsSync(recordingsDir)) {
-            fs.mkdirSync(recordingsDir, { recursive: true });
-        }
-        fs.writeFileSync(filePath, buffer);
-        audioUrl = `/recordings/${fileName}`;
-    } catch (err) {
-        const maybeNodeError = err as NodeJS.ErrnoException;
-        if (maybeNodeError.code !== "EROFS") {
-            throw err;
-        }
-    }
+    const buffer = Buffer.from(await audioFile.arrayBuffer());
+    fs.writeFileSync(filePath, buffer);
+
+    const audioUrl = `/recordings/${fileName}`;
 
     // Create recording entry
     let recording = await prisma.recording.findUnique({
@@ -59,7 +53,7 @@ export async function POST(request: Request, context: RouteContext) {
     if (recording) {
         recording = await prisma.recording.update({
             where: { appointmentId: id },
-            data: audioUrl ? { audioUrl } : {},
+            data: { audioUrl },
         });
     } else {
         recording = await prisma.recording.create({
@@ -72,11 +66,9 @@ export async function POST(request: Request, context: RouteContext) {
     let diagnosis: string | null = null;
     try {
         if (process.env.GEMINI_API_KEY) {
-            transcript = await transcribeAudioBuffer(
-                buffer,
-                audioFile.type || ext,
-            );
+            transcript = await transcribeAudio(filePath);
 
+            // Wait slightly before the second API call if needed, or execute sequentially
             if (transcript) {
                 diagnosis = await generateDiagnosisFromTranscript(transcript);
             }
